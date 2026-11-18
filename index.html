@@ -45,6 +45,7 @@ h1{font-family:var(--display);font-size:21px;margin:0;letter-spacing:-.01em}
 .sug{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--ink);font:400 14px/1.4 var(--body);display:flex;flex-direction:column;gap:4px}
 .sug b{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
 .sug:hover{border-color:var(--accent)}
+.grid{transition:opacity .25s}.grid.fade{opacity:0}
 .msg{max-width:88%;min-width:0;overflow-wrap:anywhere}
 .msg.user{align-self:flex-end;background:var(--user);border-radius:14px 14px 4px 14px;padding:10px 14px;white-space:pre-wrap}
 .msg.bot{align-self:flex-start}
@@ -79,16 +80,37 @@ dialog::backdrop{background:rgba(10,14,26,.55)}
 dialog{overflow-y:auto;overflow-x:hidden}
 .field{min-width:0}.field select,.keyrow select{max-width:100%;text-overflow:ellipsis}
 .sec{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.dlg>*,.sec>*,.keyrow>*,details.help>*{min-width:0;max-width:100%}
+.keyhead select{min-width:0}
 .sec h3{margin:0;font:600 16px var(--display)}
 .keyrow{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
 .keyhead{display:flex;gap:6px;align-items:center}
+.keyrow[open]{gap:6px}
+.keysum{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;min-width:0}
+.keysum::-webkit-details-marker{display:none}
+.keysum::after{content:"▾";color:var(--muted);font-size:12px;transition:transform .2s}
+.keyrow[open] .keysum::after{transform:rotate(180deg)}
+.kname{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kst{font-size:12px;color:var(--muted);flex:none}.kst.warn{color:var(--amber);font-weight:600}
 .keyrow select,.keyrow input{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 10px;font:400 14px var(--body);width:100%;min-width:0}
 .keyhead select{flex:1;width:auto}
 .num{font:600 12px var(--body);color:var(--accent);width:18px;text-align:center;flex:none}
 .mini{padding:6px 10px;flex:none}.mini:disabled{opacity:.35;cursor:default}
 .skill{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)}
 .skill input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent);flex:none}
-.skill div{flex:1;min-width:0}.skill b{font-size:14px;display:block}.skill small{color:var(--muted);font-size:12.5px;display:block}
+.skill{padding:6px 0;align-items:center}
+.skill details{flex:1;min-width:0}
+.skill summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
+.skill summary::-webkit-details-marker{display:none}
+.skill summary::after{content:"▾";color:var(--muted);font-size:12px;margin-left:auto;transition:transform .2s}
+.skill details[open] summary::after{transform:rotate(180deg)}
+.skill b{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skill small{color:var(--muted);font-size:12.5px;display:block;margin-top:4px}
+.skill .cnt{font:500 11px var(--body);color:var(--muted)}
+.usage{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.usage .bar{flex-basis:100%;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.usage .bar i{display:block;height:100%;background:var(--accent)}
+.usage .warn{color:var(--amber);font-weight:600}
 details.help summary{cursor:pointer;color:var(--accent);font-size:13.5px;font-weight:600}
 details.help[open]{display:flex;flex-direction:column;gap:8px}
 .help ul{margin:6px 0;padding-left:18px;font-size:13px;color:var(--muted)}.help a{color:var(--accent)}
@@ -217,9 +239,12 @@ a.icon-btn{text-decoration:none}
     <section class="sec">
       <h3>Skills</h3>
       <p>Actívalas para cambiar cómo responde Rumbo, o crea las tuyas.</p>
-      <div id="skills"></div>
-      <details class="help"><summary>🔎 Buscar skills compatibles</summary>
+      <details class="help" id="my-sk"><summary>📂 Mis skills <span class="cnt" id="sk-count"></span></summary>
+        <div id="skills"></div>
+      </details>
+      <details class="help" id="sk-panel"><summary>🔎 Buscar skills compatibles</summary>
         <small style="color:var(--muted);font-size:12.5px">Solo aparecen skills que Rumbo puede usar en esta app (instrucciones de cómo responder).</small>
+        <small id="sk-info" style="color:var(--accent);font-size:12.5px;font-weight:600"></small>
         <input id="skq" type="search" placeholder="Busca: dinero, inglés, cartas…" aria-label="Buscar skills" style="border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:400 15px var(--body);width:100%">
         <div class="links" id="sk-cat"></div>
       </details>
@@ -315,17 +340,107 @@ const SKILL_CATALOG = [
   {c:"Estudio", name:"Tutor paciente", text:"Cuando pregunten algo de estudio, explica paso a paso y termina con una pregunta corta para practicar.", d:"Explica tareas paso a paso y te pone a practicar."},
   {c:"Estilo", name:"Sin humor, serio", text:"Responde con tono serio y profesional, sin bromas.", d:"Apaga las bromas cuando necesitas seriedad."},
   {c:"Estilo", name:"Resumen al final", text:"Termina cada respuesta larga con un resumen de una línea que empiece con 'En corto:'.", d:"Agrega un resumen de una línea al final."},
-  {c:"Familia", name:"Consejero de pareja y familia", text:"En temas de relaciones escucha, valida emociones y da pasos concretos de comunicación, sin juzgar.", d:"Consejos para hablar mejor con tu pareja y familia."}
+  {c:"Familia", name:"Consejero de pareja y familia", text:"En temas de relaciones escucha, valida emociones y da pasos concretos de comunicación, sin juzgar.", d:"Consejos para hablar mejor con tu pareja y familia."},
+  {c:"Dinero", name:"Ahorro automático", text:"Cuando hablen de ahorrar, propone una meta, un monto semanal realista y cómo automatizarlo con transferencias.", d:"Te arma un plan para ahorrar sin pensarlo."},
+  {c:"Dinero", name:"Comparador de préstamos", text:"Si comparan préstamos o financiamientos, calcula pago mensual, interés total y costo real de cada opción en una tabla corta.", d:"Compara préstamos y te dice cuál sale más barato."},
+  {c:"Dinero", name:"Crédito con ITIN", text:"Si mencionan ITIN o no tener Social Security, explica cómo construir crédito con ITIN: tarjetas aseguradas, bancos que aceptan ITIN y préstamos para construir crédito.", d:"Cómo hacer crédito si solo tienes ITIN."},
+  {c:"Dinero", name:"Impuestos básicos", text:"En temas de impuestos explica en simple deducciones comunes, formularios W-2, 1099 y fechas límite, y recomienda confirmar con un preparador.", d:"Impuestos de EE. UU. explicados fácil."},
+  {c:"Dinero", name:"Gastos hormiga", text:"Si comparten gastos, detecta gastos pequeños repetidos y calcula cuánto suman al mes y al año.", d:"Encuentra los gastitos que se comen tu dinero."},
+  {c:"Dinero", name:"Envío de remesas", text:"Si hablan de mandar dinero a otro país, compara comisiones y tipo de cambio de varias opciones y sugiere la más barata.", d:"Te ayuda a mandar dinero a tu país pagando menos."},
+  {c:"Negocios", name:"Plan de negocio en una página", text:"Cuando cuenten una idea de negocio, resúmela en una página: cliente, problema, solución, precio, costos y primeros pasos.", d:"Convierte tu idea en un plan claro de una página."},
+  {c:"Negocios", name:"Atención al cliente", text:"Si pegan un mensaje de un cliente, redacta una respuesta amable, clara y que resuelva el problema.", d:"Te escribe respuestas para tus clientes."},
+  {c:"Negocios", name:"Redes sociales del negocio", text:"Cuando pidan contenido, propone 5 ideas de publicaciones con texto corto y hashtags en español.", d:"Ideas y textos para Instagram, Facebook y TikTok."},
+  {c:"Negocios", name:"Cotizaciones", text:"Si piden una cotización, arma una tabla con conceptos, cantidades, precios, impuestos y total, lista para enviar.", d:"Arma cotizaciones claras para tus clientes."},
+  {c:"Negocios", name:"Negociador", text:"Cuando vayan a negociar, prepara argumentos, el precio mínimo aceptable y frases para responder objeciones.", d:"Te prepara para negociar precios o sueldos."},
+  {c:"Negocios", name:"Contrato simple", text:"Si piden un acuerdo entre partes, redacta un borrador simple con partes, servicio, pago, fechas y cancelación, y recomienda revisarlo con un abogado.", d:"Borradores de acuerdos sencillos."},
+  {c:"Trabajo", name:"Correo profesional", text:"Cuando pidan escribir a un jefe o empresa, redacta un correo profesional, corto y directo, con asunto.", d:"Correos de trabajo bien escritos."},
+  {c:"Trabajo", name:"Derechos del trabajador", text:"En temas laborales explica derechos básicos en EE. UU.: salario mínimo, horas extra, pago atrasado y dónde reportar abusos.", d:"Conoce tus derechos en el trabajo."},
+  {c:"Trabajo", name:"Buscador de empleo", text:"Si buscan trabajo, sugiere puestos según su experiencia, dónde buscarlos y cómo destacar la solicitud.", d:"Te orienta sobre qué trabajos buscar y dónde."},
+  {c:"Trámites", name:"Licencia de manejo", text:"Si preguntan por licencia de conducir, explica requisitos según el estado que mencionen, documentos y examen.", d:"Pasos para sacar tu licencia de manejo."},
+  {c:"Trámites", name:"Renta de vivienda", text:"En temas de rentar, explica contrato, depósito, derechos del inquilino y qué revisar antes de firmar.", d:"Lo que debes saber antes de rentar casa."},
+  {c:"Trámites", name:"Seguro médico", text:"Si preguntan por seguro de salud, explica opciones (Medicaid, Marketplace, del trabajo), costos y fechas de inscripción.", d:"Opciones de seguro médico explicadas fácil."},
+  {c:"Trámites", name:"Formularios paso a paso", text:"Cuando mencionen un formulario, explica campo por campo qué poner y errores comunes a evitar.", d:"Te guía campo por campo en formularios."},
+  {c:"Idiomas", name:"Frases para el trabajo en inglés", text:"Si piden ayuda con inglés laboral, da frases útiles con su traducción y pronunciación aproximada.", d:"Inglés útil para el trabajo con pronunciación."},
+  {c:"Idiomas", name:"Ortografía perfecta", text:"Si el usuario escribe un texto, corrige ortografía y redacción en español y explica brevemente los cambios.", d:"Corrige la ortografía de tus textos."},
+  {c:"Salud", name:"Plan de comidas", text:"Si piden comer mejor, propone un menú semanal sencillo y económico con lista de compras.", d:"Menú semanal barato con lista de compras."},
+  {c:"Salud", name:"Calma y estrés", text:"Si mencionan estrés o ansiedad, propone ejercicios cortos de respiración y pasos prácticos, y sugiere ayuda profesional si es fuerte.", d:"Ejercicios rápidos para bajar el estrés."},
+  {c:"Salud", name:"Rutina de ejercicio en casa", text:"Si piden ejercicio, arma una rutina de 20 minutos sin equipo, adaptada a su nivel.", d:"Rutinas de ejercicio sin ir al gym."},
+  {c:"Hogar", name:"Limpieza organizada", text:"Si hablan de limpiar u organizar, propone un plan por días y trucos de limpieza con productos caseros.", d:"Plan de limpieza y trucos caseros."},
+  {c:"Hogar", name:"Ahorro de luz y agua", text:"En temas de facturas de casa, da formas concretas de bajar el consumo de luz, gas y agua.", d:"Baja tus recibos de luz, gas y agua."},
+  {c:"Hogar", name:"Compras inteligentes", text:"Antes de una compra grande, compara opciones, revisa garantías y sugiere cuándo hay mejores precios.", d:"Te ayuda a comprar mejor y más barato."},
+  {c:"Hogar", name:"Mascotas", text:"Si hablan de mascotas, da consejos de cuidado, alimentación y señales para ir al veterinario.", d:"Cuidado básico de perros y gatos."},
+  {c:"Viajes", name:"Planificador de viajes", text:"Cuando planeen un viaje, arma un itinerario por días con presupuesto aproximado y consejos de transporte.", d:"Itinerarios de viaje con presupuesto."},
+  {c:"Viajes", name:"Viajar con documentos", text:"Si preguntan por viajar, explica documentos necesarios, pasaporte y riesgos según su situación migratoria, y recomienda confirmar con un abogado.", d:"Qué documentos necesitas para viajar."},
+  {c:"Tecnología", name:"Apps útiles", text:"Cuando busquen una solución, recomienda apps gratuitas que ayuden y cómo usarlas.", d:"Te recomienda apps gratis para lo que necesites."},
+  {c:"Tecnología", name:"Experto en IA", text:"Si preguntan por inteligencia artificial, explica cómo usarla para su caso con ejemplos de instrucciones.", d:"Aprende a sacarle provecho a la IA."},
+  {c:"Tecnología", name:"Excel y hojas de cálculo", text:"Si mencionan Excel o Google Sheets, da la fórmula exacta y explica cómo usarla paso a paso.", d:"Fórmulas de Excel explicadas fácil."},
+  {c:"Estudio", name:"Resúmenes", text:"Si pegan un texto largo, haz un resumen en 5 puntos y una frase final con la idea principal.", d:"Resume textos largos en 5 puntos."},
+  {c:"Estudio", name:"Examen de ciudadanía", text:"Si preparan la ciudadanía, hazles preguntas del examen cívico una por una y corrige sus respuestas.", d:"Practica las preguntas de la ciudadanía."},
+  {c:"Estudio", name:"Ayuda con tareas de los hijos", text:"Cuando sea tarea escolar, explica de forma que un padre pueda enseñarle a su hijo, sin dar solo la respuesta.", d:"Te ayuda a explicarles las tareas a tus hijos."},
+  {c:"Estilo", name:"Respuestas en lista", text:"Organiza siempre las respuestas en listas cortas y fáciles de escanear.", d:"Todo en listas cortas y claras."},
+  {c:"Estilo", name:"Modo abuelita", text:"Explica todo con paciencia, palabras sencillas y ejemplos de la vida diaria, como para alguien que no usa tecnología.", d:"Explicaciones súper sencillas y pacientes."},
+  {c:"Estilo", name:"Directo al grano", text:"Da primero la respuesta exacta en una línea y solo después los detalles si hacen falta.", d:"Primero la respuesta, luego los detalles."},
+  {c:"Familia", name:"Crianza positiva", text:"En temas de hijos, da estrategias de crianza respetuosa y límites claros, según la edad que mencionen.", d:"Consejos para educar a tus hijos con calma."},
+  {c:"Familia", name:"Organizador de eventos", text:"Si planean una fiesta o evento, arma lista de tareas, presupuesto y cronograma.", d:"Organiza cumpleaños y fiestas sin estrés."},
+  {c:"Familia", name:"Mensajes especiales", text:"Cuando pidan felicitar o dedicar algo, escribe un mensaje cálido y original para la ocasión.", d:"Mensajes bonitos para cumpleaños y fechas especiales."}
 ];
 const CATS = ["General","Finanzas y crédito","Negocios","Legal y trámites","Salud y bienestar","Tecnología","Educación","Trabajo y carrera","Hogar","Viajes","Relaciones","Inmigración"];
 const SUGS = [
   ["Finanzas y crédito","¿Cómo empiezo a construir mi crédito desde cero?"],
+  ["Finanzas y crédito","¿Cómo subo mi puntaje de crédito 100 puntos?"],
+  ["Finanzas y crédito","¿Qué tarjeta asegurada me conviene para empezar?"],
+  ["Finanzas y crédito","¿Cómo hago un presupuesto si gano por semana?"],
+  ["Finanzas y crédito","¿Pago primero la deuda más chica o la de más interés?"],
+  ["Finanzas y crédito","¿Puedo sacar crédito solo con ITIN?"],
   ["Negocios","Quiero abrir una LLC, ¿por dónde empiezo?"],
+  ["Negocios","¿Cómo saco el EIN de mi negocio gratis?"],
+  ["Negocios","Dame ideas de negocio con poco dinero."],
+  ["Negocios","¿Cuánto debo cobrar por mi servicio?"],
+  ["Negocios","¿Cómo consigo mis primeros clientes?"],
+  ["Negocios","¿Qué es el crédito comercial y cómo lo empiezo?"],
   ["Legal y trámites","¿Qué hago si recibo una carta de cobro de deuda?"],
+  ["Legal y trámites","¿Qué revisar antes de firmar un contrato de renta?"],
+  ["Legal y trámites","¿Cómo saco mi licencia de manejo?"],
+  ["Legal y trámites","¿Qué hago si me llega una multa de tránsito?"],
   ["Salud y bienestar","Dame una rutina sencilla para dormir mejor."],
+  ["Salud y bienestar","¿Qué como para tener más energía en el día?"],
+  ["Salud y bienestar","Dame un ejercicio rápido para el estrés."],
+  ["Salud y bienestar","¿Cómo consigo seguro médico barato?"],
   ["Tecnología","¿Cómo protejo mis cuentas de hackeos?"],
-  ["Trabajo y carrera","Ayúdame a prepararme para una entrevista de trabajo."]
+  ["Tecnología","Mi teléfono está muy lento, ¿qué hago?"],
+  ["Tecnología","¿Cómo uso la inteligencia artificial para mi trabajo?"],
+  ["Tecnología","¿Cómo detecto un mensaje falso del banco?"],
+  ["Educación","¿Cómo aprendo inglés rápido y gratis?"],
+  ["Educación","Hazme preguntas del examen de ciudadanía."],
+  ["Educación","¿Dónde estudio una carrera técnica barata?"],
+  ["Trabajo y carrera","Ayúdame a prepararme para una entrevista de trabajo."],
+  ["Trabajo y carrera","Mejora mi currículum para que me llamen."],
+  ["Trabajo y carrera","¿Cómo pido un aumento de sueldo?"],
+  ["Trabajo y carrera","Mi patrón no me paga las horas extra, ¿qué hago?"],
+  ["Hogar","¿Cómo bajo mi recibo de luz este mes?"],
+  ["Hogar","¿Qué cocino rápido con arroz, huevo y frijoles?"],
+  ["Hogar","¿Me conviene rentar o comprar casa?"],
+  ["Viajes","Planea un viaje barato de fin de semana."],
+  ["Viajes","¿Qué documentos necesito para viajar en avión?"],
+  ["Relaciones","¿Cómo hablo con mi pareja sin pelear?"],
+  ["Relaciones","Escríbele un mensaje bonito a mi mamá."],
+  ["Relaciones","¿Cómo pongo límites a un familiar sin ofenderlo?"],
+  ["Inmigración","¿Cómo renuevo mi permiso de trabajo?"],
+  ["Inmigración","¿Qué formularios necesito para pedir a un familiar?"],
+  ["Inmigración","¿Cómo me preparo para la entrevista de residencia?"]
 ];
+const SUG_EVERY=30000; // cada 30 segundos aparecen preguntas nuevas
+let sugShown=[];
+function pickSugs(){
+  let pool=SUGS.filter(s=>!sugShown.includes(s[1]));
+  if(pool.length<6) pool=SUGS.slice();
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  const out=[], cats=new Set();
+  for(const s of pool){ if(out.length===6) break; if(!cats.has(s[0])){ out.push(s); cats.add(s[0]); } }
+  for(const s of pool){ if(out.length===6) break; if(!out.includes(s)) out.push(s); }
+  sugShown=out.map(s=>s[1]);
+  return out;
+}
 const RULES = `Eres "Brújula IA", un asistente de orientación general en español, representado por un robot simpático llamado Rumbo. Ayudas a cualquier persona en cualquier categoría: finanzas y crédito, negocios, trámites legales, salud, tecnología, educación, trabajo, hogar, viajes, relaciones, inmigración y más.
 Estilo: atrevido, franco y con mucho humor. Hablas como un amigo listo y sin pelos en la lengua: usas sarcasmo ingenioso, comparaciones graciosas y opiniones claras. Nada de respuestas tibias ni de "depende" sin aterrizar; si algo es mala idea, lo dices con gracia y explicas por qué. Puedes bromear con temas polémicos o incómodos y dar tu opinión cuando te la piden, siempre con respeto hacia la persona. Usa expresiones latinas naturales. Responde SIEMPRE en español.
 Formato: empieza con la respuesta clave en 1-2 frases; luego pasos concretos numerados o viñetas cortas; termina, si ayuda, con una sola pregunta para afinar la orientación. Usa **negritas** para lo importante y "### " para subtítulos solo si la respuesta es larga. Sé conciso.
@@ -364,6 +479,43 @@ function provOf(c){
   return {...p, name:host, base:(c.base||"").trim(), model:""};
 }
 if(!Array.isArray(cfg.skills)) cfg.skills=DEFAULT_SKILLS.map(s=>({...s}));
+// --- Contador de uso por clave (se guarda solo en este teléfono) ---
+let usage=load("brujula-usage",{});
+const today=()=>new Date().toLocaleDateString("en-CA");
+function keyId(c){ const k=(c.key||"").trim(); return c.prov+":"+(c.base||"")+":"+k.slice(0,4)+k.slice(-6); }
+function useOf(c){
+  const u=usage[keyId(c)]||{};
+  if(u.day!==today()){ u.day=today(); u.today=0; u.tokToday=0; u.limitedAt=0; }
+  u.total=u.total||0; return u;
+}
+function num(h,names){ for(const n of names){ const v=h.get(n); if(v!=null && v!=="" && !isNaN(parseFloat(v))) return parseFloat(v); } return null; }
+function noteHeaders(c,res){
+  const u=useOf(c), h=res.headers;
+  const rem=num(h,["x-ratelimit-remaining-requests","x-ratelimit-remaining-requests-day","x-ratelimit-remaining"]);
+  const lim=num(h,["x-ratelimit-limit-requests","x-ratelimit-limit-requests-day","x-ratelimit-limit"]);
+  if(rem!=null){ u.rem=rem; u.lim=lim; u.remAt=Date.now(); }
+  usage[keyId(c)]=u;
+}
+function noteUse(c,ok,status,tokens){
+  const u=useOf(c);
+  if(ok){ u.today++; u.total++; u.tokToday=(u.tokToday||0)+(tokens||0); u.last=Date.now(); u.limitedAt=0; }
+  else if(status===429){ u.limitedAt=Date.now(); }
+  usage[keyId(c)]=u; save("brujula-usage",usage);
+}
+function usageHtml(c){
+  if(!(c.key||"").trim()) return "";
+  const u=useOf(c); const parts=[];
+  parts.push(`Hoy: <b>${u.today}</b> ${u.today===1?"uso":"usos"}`);
+  if(u.tokToday) parts.push(`${u.tokToday.toLocaleString("es")} tokens`);
+  parts.push(`Total: ${u.total}`);
+  let bar="";
+  if(u.rem!=null && u.remAt && (Date.now()-u.remAt)<6*3600e3){
+    parts.push(`Le quedan <b>${u.rem.toLocaleString("es")}</b>${u.lim?" de "+u.lim.toLocaleString("es"):""} (dato del servidor)`);
+    if(u.lim) bar=`<span class="bar"><i style="width:${Math.max(2,Math.min(100,100*u.rem/u.lim))}%"></i></span>`;
+  }
+  if(u.limitedAt) parts.push(`<span class="warn">⚠ Se agotó a las ${new Date(u.limitedAt).toLocaleTimeString("es",{hour:"numeric",minute:"2-digit"})}. Rumbo usa la siguiente.</span>`);
+  return parts.map(p=>`<span>${p}</span>`).join("")+bar;
+}
 function hasKey(){ return cfg.chain.some(c=>(c.key||"").trim()); }
 function systemPrompt(){
   let s=RULES;
@@ -384,13 +536,26 @@ function welcome(){
   log.innerHTML = `<section class="welcome"><h2>Pregunta lo que quieras. Te contesto sin rodeos.</h2>
   <p>Pregúntame sobre dinero, negocios, trámites, salud, tecnología o lo que necesites. Escribe o toca el micrófono para hablarme.</p>
   <div class="grid"></div></section>`;
-  const g=log.querySelector(".grid");
-  SUGS.forEach(([c,t])=>{
-    const b=document.createElement("button"); b.type="button"; b.className="sug";
-    b.innerHTML="<b></b><span></span>"; b.querySelector("b").textContent=c; b.querySelector("span").textContent=t;
-    b.onclick=()=>{ setCat(c); ask(t); }; g.append(b);
-  });
+  fillSugs();
 }
+function fillSugs(){
+  const g=log.querySelector(".welcome .grid"); if(!g) return;
+  g.classList.add("fade");
+  setTimeout(()=>{
+    g.innerHTML="";
+    pickSugs().forEach(([c,t])=>{
+      const b=document.createElement("button"); b.type="button"; b.className="sug";
+      b.innerHTML="<b></b><span></span>"; b.querySelector("b").textContent=c; b.querySelector("span").textContent=t;
+      b.onclick=()=>{ setCat(c); ask(t); }; g.append(b);
+    });
+    g.classList.remove("fade");
+  }, g.children.length?250:0);
+}
+setInterval(()=>{
+  const g=log.querySelector(".welcome .grid");
+  if(g && document.visibilityState==="visible" && !g.matches(":hover") && !g.contains(document.activeElement) && !dlg.open) fillSugs();
+}, SUG_EVERY);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") fillSugs(); });
 
 // --- Markdown mínimo ---
 function esc(s){return s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
@@ -440,8 +605,9 @@ async function callOne(p, c, messages, onText, signal){
   if(!p.base) throw {code:"http", status:0, detail:"Falta la dirección del servidor."};
   const res=await fetch(p.base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",headers,signal,
     body:JSON.stringify({model:(c.model||"").trim()||p.model, messages, stream:true, temperature:0.8, max_tokens:1200})});
-  if(!res.ok){ let detail=""; try{ detail=(await res.json())?.error?.message||""; }catch(e){} throw {code:"http", status:res.status, detail}; }
-  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="";
+  noteHeaders(c,res);
+  if(!res.ok){ let detail=""; try{ detail=(await res.json())?.error?.message||""; }catch(e){} noteUse(c,false,res.status); throw {code:"http", status:res.status, detail}; }
+  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="", tokens=0;
   while(true){
     const {value,done}=await reader.read(); if(done) break;
     buf+=dec.decode(value,{stream:true});
@@ -449,10 +615,11 @@ async function callOne(p, c, messages, onText, signal){
     for(const l of lines){
       const s=l.trim(); if(!s.startsWith("data:")) continue;
       const data=s.slice(5).trim(); if(data==="[DONE]") continue;
-      try{ const j=JSON.parse(data); const d=j.choices?.[0]?.delta?.content; if(d){ text+=d; onText(text); } }catch(e){}
+      try{ const j=JSON.parse(data); if(j.usage?.total_tokens) tokens=j.usage.total_tokens; const d=j.choices?.[0]?.delta?.content; if(d){ text+=d; onText(text); } }catch(e){}
     }
   }
   if(!text.trim()) throw {code:"empty"};
+  noteUse(c,true,200,tokens);
   return text;
 }
 function errText(e){
@@ -641,10 +808,27 @@ function renderServers(){
 $("srv-q").oninput=renderServers; $("srv-ok").onchange=renderServers;
 
 // --- Buscador de skills compatibles ---
+// Cada vez que cierras el buscador (o Ajustes) aparecen skills nuevas que aún no has visto.
+const SK_BATCH=8;
+let skRot=load("brujula-skrot",{seen:[],batch:[]});
+function nextSkillBatch(){
+  const have=new Set(draftSkills.length?draftSkills.map(s=>s.name):cfg.skills.map(s=>s.name));
+  const avail=SKILL_CATALOG.filter(s=>!have.has(s.name));
+  skRot.seen=[...new Set([...(skRot.seen||[]),...(skRot.batch||[])])];
+  let fresh=avail.filter(s=>!skRot.seen.includes(s.name));
+  if(fresh.length<SK_BATCH){ skRot.seen=[]; fresh=avail.filter(s=>!(skRot.batch||[]).includes(s.name)); if(fresh.length<SK_BATCH) fresh=avail; }
+  for(let i=fresh.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [fresh[i],fresh[j]]=[fresh[j],fresh[i]]; }
+  skRot.batch=fresh.slice(0,SK_BATCH).map(s=>s.name);
+  save("brujula-skrot",skRot);
+}
+if(!skRot.batch||!skRot.batch.length) nextSkillBatch();
 function renderSkillCatalog(){
   const t=($("skq").value||"").toLowerCase().trim();
   const have=new Set(draftSkills.map(s=>s.name));
-  const list=SKILL_CATALOG.filter(s=>!t || (s.name+" "+s.d+" "+s.c).toLowerCase().includes(t));
+  const list = t ? SKILL_CATALOG.filter(s=>(s.name+" "+s.d+" "+s.c).toLowerCase().includes(t))
+                 : SKILL_CATALOG.filter(s=>skRot.batch.includes(s.name));
+  $("sk-info").textContent = t ? `${list.length} ${list.length===1?"resultado":"resultados"} de ${SKILL_CATALOG.length} skills`
+    : `${list.length} sugerencias nuevas · cambian cada vez que cierras este buscador`;
   const box=$("sk-cat"); box.innerHTML="";
   list.forEach(s=>{
     const el=document.createElement("div"); el.className="linkcard";
@@ -658,22 +842,32 @@ function renderSkillCatalog(){
   });
   if(!list.length) box.innerHTML='<small style="color:var(--muted)">No hay una skill así. Créala tú abajo con «Crear una skill nueva».</small>';
 }
+$("sk-panel").addEventListener("toggle",e=>{ if(!$("sk-panel").open){ nextSkillBatch(); $("skq").value=""; renderSkillCatalog(); } });
+dlg.addEventListener("close",()=>{ if($("sk-panel").open){ $("sk-panel").open=false; } else { nextSkillBatch(); } });
 $("skq").oninput=renderSkillCatalog;
+function keyTitle(c){
+  const p=provOf(c), u=(c.key||"").trim()?useOf(c):null;
+  let st="sin clave";
+  if(u){ st=u.limitedAt?"⚠ agotada hoy":(u.rem!=null&&u.remAt&&(Date.now()-u.remAt)<6*3600e3?`hoy ${u.today} · quedan ${u.rem.toLocaleString("es")}`:`hoy ${u.today} ${u.today===1?"uso":"usos"}`); }
+  return {name:p.name, st};
+}
 function renderKeys(){
   keysEl.innerHTML="";
   draft.forEach((c,i)=>{
-    const row=document.createElement("div"); row.className="keyrow";
-    row.innerHTML=`<div class="keyhead"><span class="num">${i+1}</span><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="url" autocomplete="off" spellcheck="false" placeholder="Dirección del servidor, ej.: https://api.ejemplo.com/v1" aria-label="Dirección del servidor ${i+1}"><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}">`;
+    const row=document.createElement("details"); row.className="keyrow";
+    if(!(c.key||"").trim()) row.open=true;
+    row.innerHTML=`<summary class="keysum"><span class="num">${i+1}</span><b class="kname"></b><span class="kst"></span></summary><div class="keyhead"><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="url" autocomplete="off" spellcheck="false" placeholder="Dirección del servidor, ej.: https://api.ejemplo.com/v1" aria-label="Dirección del servidor ${i+1}"><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}"><div class="usage"></div>`;
     const sel=row.querySelector("select");
     for(const [k,p] of Object.entries(PROVIDERS)) sel.append(new Option(p.name,k));
     if(!PROVIDERS[c.prov]) c.prov="custom";
     sel.value=c.prov;
     const [bIn,kIn,mIn]=row.querySelectorAll("input");
+    const head=()=>{ const t=keyTitle(c); row.querySelector(".kname").textContent=t.name; const st=row.querySelector(".kst"); st.textContent=t.st; st.classList.toggle("warn",t.st.startsWith("⚠")); row.querySelector(".usage").innerHTML=usageHtml(c); };
     const sync=()=>{ const cu=c.prov==="custom"; bIn.hidden=!cu;
-      mIn.placeholder= cu ? "Modelo (obligatorio en otro servidor)" : "Modelo (vacío = "+PROVIDERS[c.prov].model+")"; };
+      mIn.placeholder= cu ? "Modelo (obligatorio en otro servidor)" : "Modelo (vacío = "+PROVIDERS[c.prov].model+")"; head(); };
     bIn.value=c.base||""; kIn.value=c.key||""; mIn.value=c.model||""; sync();
     sel.onchange=()=>{ c.prov=sel.value; sync(); };
-    bIn.oninput=()=>{ c.base=bIn.value; }; kIn.oninput=()=>{ c.key=kIn.value; }; mIn.oninput=()=>{ c.model=mIn.value; };
+    bIn.oninput=()=>{ c.base=bIn.value; head(); }; kIn.oninput=()=>{ c.key=kIn.value; head(); }; mIn.oninput=()=>{ c.model=mIn.value; };
     row.querySelector('[data-act="up"]').onclick=()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderKeys(); };
     row.querySelector('[data-act="del"]').onclick=()=>{ draft.splice(i,1); if(!draft.length) draft.push({prov:"groq",key:"",model:""}); renderKeys(); };
     keysEl.append(row);
@@ -689,8 +883,9 @@ function renderSkills(){
   draftSkills.forEach((s,i)=>{
     const row=document.createElement("div"); row.className="skill";
     const id="sk-"+i;
-    row.innerHTML=`<input type="checkbox" id="${id}"><div><label for="${id}"><b></b></label><small></small></div>`;
+    row.innerHTML=`<input type="checkbox" id="${id}" aria-label="Activar"><details><summary><b></b></summary><small></small></details>`;
     row.querySelector("b").textContent=s.name; row.querySelector("small").textContent=s.text;
+    row.querySelector("input").setAttribute("aria-label","Activar "+s.name);
     const cb=row.querySelector("input"); cb.checked=!!s.on; cb.onchange=()=>{ s.on=cb.checked; };
     if(!DEFAULT_SKILLS.some(d=>d.id===s.id)){
       const del=document.createElement("button"); del.type="button"; del.className="ghost mini"; del.textContent="✕";
@@ -700,7 +895,10 @@ function renderSkills(){
     }
     skillsEl.append(row);
   });
+  const on=draftSkills.filter(s=>s.on).length;
+  $("sk-count").textContent=`(${draftSkills.length} · ${on} ${on===1?"activa":"activas"})`;
 }
+skillsEl.addEventListener("change",()=>{ const on=draftSkills.filter(s=>s.on).length; $("sk-count").textContent=`(${draftSkills.length} · ${on} ${on===1?"activa":"activas"})`; });
 $("sk-add").onclick=()=>{
   const n=$("sk-name").value.trim(), t=$("sk-text").value.trim();
   if(!n||!t){ ($("sk-name").value.trim()?$("sk-text"):$("sk-name")).focus(); return; }
