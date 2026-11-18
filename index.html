@@ -291,11 +291,11 @@ a.icon-btn{text-decoration:none}
 
 <script>
 const PROVIDERS = {
-  groq:{name:"Groq (gratis, muy rápido)", base:"https://api.groq.com/openai/v1", model:"llama-3.3-70b-versatile",
+  groq:{name:"Groq (gratis, muy rápido)", base:"https://api.groq.com/openai/v1", model:"openai/gpt-oss-120b",
     keyUrl:"https://console.groq.com/keys", steps:["Entra a console.groq.com y crea una cuenta gratis (con Google o correo).","Ve a \"API Keys\" y toca \"Create API Key\".","Copia la clave (empieza con gsk_) y pégala abajo."]},
-  gemini:{name:"Google Gemini (gratis)", base:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-2.5-flash",
+  gemini:{name:"Google Gemini (gratis)", base:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-3.5-flash",
     keyUrl:"https://aistudio.google.com/apikey", steps:["Entra a aistudio.google.com con tu cuenta de Google.","Toca \"Get API key\" y luego \"Create API key\".","Copia la clave (empieza con AIza) y pégala abajo."]},
-  openrouter:{name:"OpenRouter (modelos gratis)", base:"https://openrouter.ai/api/v1", model:"meta-llama/llama-3.3-70b-instruct:free",
+  openrouter:{name:"OpenRouter (modelos gratis)", base:"https://openrouter.ai/api/v1", model:"google/gemma-4-31b-it:free",
     keyUrl:"https://openrouter.ai/keys", steps:["Entra a openrouter.ai y crea una cuenta gratis.","Ve a \"Keys\" y crea una clave nueva.","Copia la clave (empieza con sk-or-) y pégala abajo."]},
   cohere:{name:"Cohere (clave de prueba gratis)", base:"https://api.cohere.ai/compatibility/v1", model:"command-a-03-2025",
     keyUrl:"https://dashboard.cohere.com/api-keys", steps:["Entra a dashboard.cohere.com y crea una cuenta gratis.","Ve a \"API Keys\": ya tienes una \"Trial key\" gratis.","Cópiala y pégala abajo."]},
@@ -599,14 +599,49 @@ async function callAI(messages, onText, signal){
   if(list.length>1 && last) last.all=true;
   throw last;
 }
+const MODEL_PREFS={
+  groq:[/gpt-oss-120b/,/qwen3[.\d]*-?\d*b/,/gpt-oss/,/llama/],
+  gemini:[/^gemini-\d+(\.\d+)?-flash$/,/^gemini-\d+(\.\d+)?-flash-lite$/,/^gemini-.*flash/],
+  openrouter:[/gemma.*:free$/,/nemotron.*ultra.*:free$/,/:free$/],
+  cohere:[/^command-a/,/^command/],
+  hf:[/llama.*instruct/i,/qwen.*instruct/i,/instruct/i]
+};
+async function autoModel(base, headers, prov, bad, signal){
+  try{
+    const r=await fetch(base+"/models",{headers:{Authorization:headers.Authorization},signal});
+    if(!r.ok) return "";
+    const j=await r.json();
+    let ids=(j.data||j.models||[]).map(m=>String(m.id||m.name||"").replace(/^models\//,"")).filter(id=>id && id!==bad);
+    ids=ids.filter(id=>!/embed|whisper|tts|audio|image|vision|guard|rerank|moderation|transcri|speech/i.test(id));
+    if(prov==="gemini") ids.sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
+    for(const re of (MODEL_PREFS[prov]||[/instruct|chat/i])){ const hit=ids.find(id=>re.test(id)); if(hit) return hit; }
+    return ids[0]||"";
+  }catch(e){ return ""; }
+}
 async function callOne(p, c, messages, onText, signal){
   const headers={"Content-Type":"application/json","Authorization":"Bearer "+c.key.trim()};
   if(c.prov==="openrouter"){ headers["HTTP-Referer"]=location.origin||"https://brujula-ia.app"; headers["X-Title"]="Brujula IA"; }
   if(!p.base) throw {code:"http", status:0, detail:"Falta la dirección del servidor."};
-  const res=await fetch(p.base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",headers,signal,
-    body:JSON.stringify({model:(c.model||"").trim()||p.model, messages, stream:true, temperature:0.8, max_tokens:1200})});
+  const base=p.base.replace(/\/+$/,"");
+  const send=model=>fetch(base+"/chat/completions",{method:"POST",headers,signal,
+    body:JSON.stringify({model, messages, stream:true, temperature:0.8, max_tokens:1200})});
+  const errOf=async r=>{ try{ const j=await r.json(); const e=Array.isArray(j)?j[0]?.error:j?.error; return (typeof e==="string"?e:e?.message)||""; }catch(e){ return ""; } };
+  let model=(c.model||"").trim()||p.model;
+  let res=await send(model);
   noteHeaders(c,res);
-  if(!res.ok){ let detail=""; try{ detail=(await res.json())?.error?.message||""; }catch(e){} noteUse(c,false,res.status); throw {code:"http", status:res.status, detail}; }
+  if(!res.ok){
+    let detail=await errOf(res);
+    // Si el proveedor retiró el modelo, Rumbo busca uno vigente en su lista y lo guarda.
+    if(res.status===404 || ((res.status===400||res.status===422) && /model|not found|no longer|deprecat|decommission|does not exist|not supported/i.test(detail))){
+      const pick=await autoModel(base, headers, c.prov, model, signal);
+      if(pick){
+        res=await send(pick); noteHeaders(c,res);
+        if(res.ok){ c.model=pick; save("brujula-cfg",cfg); }
+        else detail=await errOf(res);
+      }
+    }
+    if(!res.ok){ noteUse(c,false,res.status); throw {code:"http", status:res.status, detail}; }
+  }
   const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="", tokens=0;
   while(true){
     const {value,done}=await reader.read(); if(done) break;
