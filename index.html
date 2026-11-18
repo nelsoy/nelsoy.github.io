@@ -206,11 +206,23 @@ a.icon-btn{text-decoration:none}
       <div id="keys" style="display:flex;flex-direction:column;gap:8px"></div>
       <div><button class="ghost" type="button" id="add-key">+ Agregar otra clave</button></div>
       <div><p style="margin-bottom:8px"><b style="color:var(--ink)">Crea tus claves gratis aquí:</b></p><div class="links" id="key-help"></div></div>
+      <details class="help"><summary>🔎 Buscar más servidores con clave gratis</summary>
+        <input id="srv-q" type="search" placeholder="Busca: rápido, DeepSeek, español…" aria-label="Buscar servidores" style="border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:400 15px var(--body);width:100%">
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)"><input id="srv-ok" type="checkbox" checked style="accent-color:var(--accent)"> Solo los que funcionan dentro de Brújula</label>
+        <div class="links" id="srv-list"></div>
+        <a class="ghost" id="srv-web" href="#" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Buscar más en internet ↗</a>
+        <small style="color:var(--muted);font-size:12.5px">¿Encontraste otro? Agrega una clave, elige «Otro servidor» y pega su dirección (termina en /v1) y el nombre del modelo.</small>
+      </details>
     </section>
     <section class="sec">
       <h3>Skills</h3>
       <p>Actívalas para cambiar cómo responde Rumbo, o crea las tuyas.</p>
       <div id="skills"></div>
+      <details class="help"><summary>🔎 Buscar skills compatibles</summary>
+        <small style="color:var(--muted);font-size:12.5px">Solo aparecen skills que Rumbo puede usar en esta app (instrucciones de cómo responder).</small>
+        <input id="skq" type="search" placeholder="Busca: dinero, inglés, cartas…" aria-label="Buscar skills" style="border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:400 15px var(--body);width:100%">
+        <div class="links" id="sk-cat"></div>
+      </details>
       <details class="help"><summary>+ Crear una skill nueva</summary>
         <label class="field" for="sk-name">Nombre<input id="sk-name" type="text" placeholder="Ej.: Experto en bienes raíces"></label>
         <label class="field" for="sk-text">Instrucciones para Rumbo<textarea id="sk-text" rows="3" placeholder="Ej.: Cuando pregunten por casas, explica opciones de préstamo FHA y con ITIN, y los costos de cierre."></textarea></label>
@@ -260,11 +272,51 @@ const PROVIDERS = {
     keyUrl:"https://aistudio.google.com/apikey", steps:["Entra a aistudio.google.com con tu cuenta de Google.","Toca \"Get API key\" y luego \"Create API key\".","Copia la clave (empieza con AIza) y pégala abajo."]},
   openrouter:{name:"OpenRouter (modelos gratis)", base:"https://openrouter.ai/api/v1", model:"meta-llama/llama-3.3-70b-instruct:free",
     keyUrl:"https://openrouter.ai/keys", steps:["Entra a openrouter.ai y crea una cuenta gratis.","Ve a \"Keys\" y crea una clave nueva.","Copia la clave (empieza con sk-or-) y pégala abajo."]},
-  mistral:{name:"Mistral (plan gratis)", base:"https://api.mistral.ai/v1", model:"mistral-small-latest",
-    keyUrl:"https://console.mistral.ai/api-keys", steps:["Entra a console.mistral.ai y crea una cuenta.","Elige el plan gratis \"Experiment\".","En \"API Keys\" crea una clave y pégala abajo."]},
-  cerebras:{name:"Cerebras (gratis, muy rápido)", base:"https://api.cerebras.ai/v1", model:"llama-3.3-70b",
-    keyUrl:"https://cloud.cerebras.ai", steps:["Entra a cloud.cerebras.ai y crea una cuenta gratis.","Ve a \"API Keys\" y genera una clave.","Cópiala (empieza con csk-) y pégala abajo."]}
+  cohere:{name:"Cohere (clave de prueba gratis)", base:"https://api.cohere.ai/compatibility/v1", model:"command-a-03-2025",
+    keyUrl:"https://dashboard.cohere.com/api-keys", steps:["Entra a dashboard.cohere.com y crea una cuenta gratis.","Ve a \"API Keys\": ya tienes una \"Trial key\" gratis.","Cópiala y pégala abajo."]},
+  hf:{name:"Hugging Face (créditos gratis)", base:"https://router.huggingface.co/v1", model:"meta-llama/Llama-3.3-70B-Instruct",
+    keyUrl:"https://huggingface.co/settings/tokens/new?tokenType=fineGrained", steps:["Entra a huggingface.co y crea una cuenta gratis.","Crea un token y marca \"Make calls to Inference Providers\".","Copia el token (empieza con hf_) y pégalo abajo."]},
+  custom:{name:"Otro servidor (compatible OpenAI)", base:"", model:"",
+    keyUrl:"", steps:[]}
 };
+// Servidores que se probaron desde un navegador: "app" = funcionan dentro de Brújula; "no" = bloquean apps web.
+const DIRECTORY = [
+  {n:"Groq", ok:"app", prov:"groq", url:"https://console.groq.com/keys", d:"Gratis sin tarjeta, rapidísimo. Llama, Qwen, GPT-OSS."},
+  {n:"Google Gemini", ok:"app", prov:"gemini", url:"https://aistudio.google.com/apikey", d:"Gratis con tu cuenta de Google. Mucho contexto."},
+  {n:"OpenRouter", ok:"app", prov:"openrouter", url:"https://openrouter.ai/keys", d:"Una sola clave para decenas de modelos gratis (terminan en :free)."},
+  {n:"Cohere", ok:"app", prov:"cohere", url:"https://dashboard.cohere.com/api-keys", d:"Clave de prueba gratis. Modelos Command, buenos en español."},
+  {n:"Hugging Face", ok:"app", prov:"hf", url:"https://huggingface.co/settings/tokens/new?tokenType=fineGrained", d:"Créditos gratis cada mes para miles de modelos abiertos."},
+  {n:"Chutes", ok:"app", prov:"custom", base:"https://llm.chutes.ai/v1", model:"deepseek-ai/DeepSeek-V3-0324", url:"https://chutes.ai/app/api", d:"Modelos abiertos (DeepSeek, Qwen). Revisa si tu cuenta tiene uso gratis."},
+  {n:"Mistral", ok:"app", prov:"custom", base:"https://api.mistral.ai/v1", model:"mistral-small-latest", url:"https://console.mistral.ai/api-keys", d:"Plan gratis \"Experiment\", pero pide verificar tu teléfono."},
+  {n:"NVIDIA", ok:"no", url:"https://build.nvidia.com/settings/api-keys", d:"Clave gratis, pero bloquea apps web: no funciona dentro de Brújula."},
+  {n:"Cerebras", ok:"no", url:"https://cloud.cerebras.ai", d:"Gratis, pero bloquea apps web: no funciona dentro de Brújula."},
+  {n:"SambaNova", ok:"no", url:"https://cloud.sambanova.ai/apis", d:"Gratis, pero bloquea apps web: no funciona dentro de Brújula."},
+  {n:"GitHub Models", ok:"no", url:"https://github.com/settings/personal-access-tokens", d:"Gratis con tu GitHub, pero bloquea apps web."},
+  {n:"Z.ai (GLM)", ok:"no", url:"https://z.ai/manage-apikey/apikey-list", d:"Modelo GLM gratis, pero bloquea apps web."}
+];
+// Skills que la app sí puede usar: todas son instrucciones de texto para Rumbo.
+const SKILL_CATALOG = [
+  {c:"Dinero", name:"Plan de presupuesto 50/30/20", text:"Cuando hablen de dinero del mes, arma un presupuesto 50/30/20 con sus números y señala dónde recortar.", d:"Te arma un presupuesto con tus ingresos y gastos."},
+  {c:"Dinero", name:"Salir de deudas", text:"Si mencionan deudas, compara método bola de nieve y avalancha con sus números y propone un orden de pago.", d:"Ordena tus deudas y te dice cuál pagar primero."},
+  {c:"Dinero", name:"Detector de estafas", text:"Si describen una oferta, mensaje o llamada sospechosa, evalúa señales de estafa y di claramente si parece fraude y qué hacer.", d:"Revisa ofertas o mensajes y te avisa si huelen a estafa."},
+  {c:"Negocios", name:"Asesor de LLC y negocio", text:"En temas de negocio explica pasos para LLC, EIN, cuenta bancaria de negocio, licencias y crédito comercial (DUNS, Net 30), en orden práctico.", d:"Te guía para abrir y ordenar tu negocio en EE. UU."},
+  {c:"Negocios", name:"Escritor de anuncios", text:"Cuando pidan textos para vender, escribe 3 versiones cortas de anuncio con gancho, beneficio y llamado a la acción.", d:"Te escribe anuncios y publicaciones para vender."},
+  {c:"Negocios", name:"Precios y ganancia", text:"Si preguntan cuánto cobrar, calcula costo, margen y precio sugerido, y muestra la ganancia por unidad.", d:"Te ayuda a poner precio y calcular tu ganancia."},
+  {c:"Trabajo", name:"Currículum y entrevistas", text:"Para empleo, mejora currículums con logros medibles y simula preguntas de entrevista con respuestas modelo.", d:"Mejora tu currículum y te prepara para entrevistas."},
+  {c:"Trámites", name:"Inmigración paso a paso", text:"En temas migratorios explica formularios de USCIS por nombre y número, requisitos y costos aproximados, y recomienda confirmar con un abogado o en uscis.gov.", d:"Explica trámites de USCIS en lenguaje sencillo."},
+  {c:"Trámites", name:"Redactor de cartas", text:"Cuando pidan una carta (reclamo, disputa, permiso, renuncia), redáctala completa, formal y lista para firmar.", d:"Te escribe cartas formales listas para enviar."},
+  {c:"Idiomas", name:"Traductor inglés-español", text:"Si el mensaje está en inglés o piden traducir, traduce con naturalidad y explica frases difíciles.", d:"Traduce y te explica el inglés difícil."},
+  {c:"Idiomas", name:"Profe de inglés", text:"Corrige el inglés del usuario con amabilidad, explica el error y da una frase de práctica.", d:"Corrige tu inglés y te da práctica."},
+  {c:"Salud", name:"Hábitos saludables", text:"En salud y bienestar da hábitos simples y medibles, y recomienda ver a un médico ante síntomas serios.", d:"Consejos de sueño, comida y ejercicio fáciles de seguir."},
+  {c:"Hogar", name:"Cocina con lo que hay", text:"Si mencionan ingredientes, propone recetas rápidas con eso, con pasos numerados.", d:"Recetas con lo que tienes en la cocina."},
+  {c:"Hogar", name:"Arreglos de la casa", text:"Para reparaciones caseras da pasos seguros, herramientas necesarias y cuándo llamar a un profesional.", d:"Te guía en reparaciones simples de la casa."},
+  {c:"Tecnología", name:"Soporte técnico", text:"Para problemas de teléfono o computadora da pasos de solución en orden, del más fácil al más difícil.", d:"Resuelve problemas del teléfono o la compu paso a paso."},
+  {c:"Tecnología", name:"Seguridad digital", text:"En temas de cuentas y contraseñas recomienda verificación en dos pasos, gestor de contraseñas y cómo detectar phishing.", d:"Protege tus cuentas de hackeos."},
+  {c:"Estudio", name:"Tutor paciente", text:"Cuando pregunten algo de estudio, explica paso a paso y termina con una pregunta corta para practicar.", d:"Explica tareas paso a paso y te pone a practicar."},
+  {c:"Estilo", name:"Sin humor, serio", text:"Responde con tono serio y profesional, sin bromas.", d:"Apaga las bromas cuando necesitas seriedad."},
+  {c:"Estilo", name:"Resumen al final", text:"Termina cada respuesta larga con un resumen de una línea que empiece con 'En corto:'.", d:"Agrega un resumen de una línea al final."},
+  {c:"Familia", name:"Consejero de pareja y familia", text:"En temas de relaciones escucha, valida emociones y da pasos concretos de comunicación, sin juzgar.", d:"Consejos para hablar mejor con tu pareja y familia."}
+];
 const CATS = ["General","Finanzas y crédito","Negocios","Legal y trámites","Salud y bienestar","Tecnología","Educación","Trabajo y carrera","Hogar","Viajes","Relaciones","Inmigración"];
 const SUGS = [
   ["Finanzas y crédito","¿Cómo empiezo a construir mi crédito desde cero?"],
@@ -301,6 +353,16 @@ if(!Array.isArray(cfg.chain)){
 }
 delete cfg.keys; delete cfg.models; delete cfg.prov;
 if(!cfg.chain.length) cfg.chain=[{prov:"groq", key:"", model:""}];
+// Proveedores que ya no están en la lista pasan a "Otro servidor" con su dirección
+const OLD_BASES={mistral:"https://api.mistral.ai/v1", cerebras:"https://api.cerebras.ai/v1"};
+cfg.chain.forEach(c=>{ if(!PROVIDERS[c.prov]){ c.base=c.base||OLD_BASES[c.prov]||""; c.prov="custom"; } });
+if(!cfg.github) cfg.github="nelsoy";
+function provOf(c){
+  const p=PROVIDERS[c.prov]||PROVIDERS.groq;
+  if(c.prov!=="custom") return p;
+  let host="Otro"; try{ host=new URL(c.base).hostname.replace(/^(api|llm|www)\./,""); }catch(e){}
+  return {...p, name:host, base:(c.base||"").trim(), model:""};
+}
 if(!Array.isArray(cfg.skills)) cfg.skills=DEFAULT_SKILLS.map(s=>({...s}));
 function hasKey(){ return cfg.chain.some(c=>(c.key||"").trim()); }
 function systemPrompt(){
@@ -359,7 +421,7 @@ async function callAI(messages, onText, signal){
   if(!list.length) throw {code:"no_key"};
   let last;
   for(let i=0;i<list.length;i++){
-    const c=list[i], p=PROVIDERS[c.prov]||PROVIDERS.groq; let streamed=false;
+    const c=list[i], p=provOf(c); let streamed=false;
     try{
       const text=await callOne(p, c, messages, t=>{ streamed=true; onText(t); }, signal);
       return {text, via:p.name.split(" ")[0]+" #"+(cfg.chain.indexOf(c)+1)};
@@ -375,7 +437,8 @@ async function callAI(messages, onText, signal){
 async function callOne(p, c, messages, onText, signal){
   const headers={"Content-Type":"application/json","Authorization":"Bearer "+c.key.trim()};
   if(c.prov==="openrouter"){ headers["HTTP-Referer"]=location.origin||"https://brujula-ia.app"; headers["X-Title"]="Brujula IA"; }
-  const res=await fetch(p.base+"/chat/completions",{method:"POST",headers,signal,
+  if(!p.base) throw {code:"http", status:0, detail:"Falta la dirección del servidor."};
+  const res=await fetch(p.base.replace(/\/+$/,"")+"/chat/completions",{method:"POST",headers,signal,
     body:JSON.stringify({model:(c.model||"").trim()||p.model, messages, stream:true, temperature:0.8, max_tokens:1200})});
   if(!res.ok){ let detail=""; try{ detail=(await res.json())?.error?.message||""; }catch(e){} throw {code:"http", status:res.status, detail}; }
   const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="";
@@ -548,19 +611,69 @@ function addFeedback(bubble){
 // --- Ajustes ---
 const keysEl=$("keys"), skillsEl=$("skills"), memEl=$("memory"), lesEl=$("lessons");
 let draft=[], draftSkills=[];
-$("key-help").innerHTML=Object.values(PROVIDERS).map(p=>`<a class="linkcard" href="${p.keyUrl}" target="_blank" rel="noopener"><b>${esc(p.name)} ↗</b><small>${esc(p.steps.join(" "))}</small></a>`).join("");
+$("key-help").innerHTML=Object.values(PROVIDERS).filter(p=>p.keyUrl).map(p=>`<a class="linkcard" href="${p.keyUrl}" target="_blank" rel="noopener"><b>${esc(p.name)} ↗</b><small>${esc(p.steps.join(" "))}</small></a>`).join("");
+
+// --- Buscador de servidores con clave gratis ---
+function addServer(s){
+  const row = s.prov==="custom" ? {prov:"custom", base:s.base, model:s.model||"", key:""} : {prov:s.prov, key:"", model:""};
+  const empty=draft.findIndex(d=>!(d.key||"").trim() && d.prov===row.prov && !d.base);
+  if(empty>=0 && row.prov!=="custom") draft[empty]=row; else if(draft.length===1 && !(draft[0].key||"").trim()) draft[0]=row; else draft.push(row);
+  renderKeys(); keysEl.lastElementChild?.scrollIntoView({block:"center"});
+  say("happy","Listo, agregué "+s.n+". Crea tu clave con el enlace y pégala.");
+}
+function renderServers(){
+  const t=($("srv-q").value||"").toLowerCase().trim(), only=$("srv-ok").checked;
+  const list=DIRECTORY.filter(s=>(!only||s.ok==="app") && (!t || (s.n+" "+s.d).toLowerCase().includes(t)));
+  const box=$("srv-list"); box.innerHTML="";
+  list.forEach(s=>{
+    const el=document.createElement("div"); el.className="linkcard";
+    el.innerHTML=`<b></b><small></small><div class="fb" style="margin-top:4px"></div>`;
+    el.querySelector("b").textContent=(s.ok==="app"?"✅ ":"⛔ ")+s.n;
+    el.querySelector("small").textContent=s.d;
+    const act=el.querySelector(".fb");
+    const a=document.createElement("a"); a.className="chip"; a.href=s.url; a.target="_blank"; a.rel="noopener"; a.textContent="Crear clave ↗"; a.style.textDecoration="none"; act.append(a);
+    if(s.ok==="app"){ const b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent="+ Usar en Brújula"; b.onclick=()=>addServer(s); act.append(b); }
+    box.append(el);
+  });
+  if(!list.length) box.innerHTML='<small style="color:var(--muted)">No encontré ese servidor en la lista. Usa «Buscar más en internet».</small>';
+  $("srv-web").href="https://www.google.com/search?q="+encodeURIComponent("free LLM API key OpenAI compatible "+(t||"")+" "+new Date().getFullYear());
+}
+$("srv-q").oninput=renderServers; $("srv-ok").onchange=renderServers;
+
+// --- Buscador de skills compatibles ---
+function renderSkillCatalog(){
+  const t=($("skq").value||"").toLowerCase().trim();
+  const have=new Set(draftSkills.map(s=>s.name));
+  const list=SKILL_CATALOG.filter(s=>!t || (s.name+" "+s.d+" "+s.c).toLowerCase().includes(t));
+  const box=$("sk-cat"); box.innerHTML="";
+  list.forEach(s=>{
+    const el=document.createElement("div"); el.className="linkcard";
+    el.innerHTML=`<b></b><small></small><div class="fb" style="margin-top:4px"></div>`;
+    el.querySelector("b").textContent=s.name+" · "+s.c;
+    el.querySelector("small").textContent=s.d;
+    const b=document.createElement("button"); b.type="button"; b.className="chip";
+    if(have.has(s.name)){ b.textContent="✓ Ya la tienes"; b.disabled=true; }
+    else { b.textContent="+ Agregar"; b.onclick=()=>{ draftSkills.push({id:"c"+Date.now(), name:s.name, text:s.text, on:true}); renderSkills(); renderSkillCatalog(); say("happy","Skill agregada y activada. Toca Guardar."); }; }
+    el.querySelector(".fb").append(b); box.append(el);
+  });
+  if(!list.length) box.innerHTML='<small style="color:var(--muted)">No hay una skill así. Créala tú abajo con «Crear una skill nueva».</small>';
+}
+$("skq").oninput=renderSkillCatalog;
 function renderKeys(){
   keysEl.innerHTML="";
   draft.forEach((c,i)=>{
     const row=document.createElement("div"); row.className="keyrow";
-    row.innerHTML=`<div class="keyhead"><span class="num">${i+1}</span><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}">`;
+    row.innerHTML=`<div class="keyhead"><span class="num">${i+1}</span><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="url" autocomplete="off" spellcheck="false" placeholder="Dirección del servidor, ej.: https://api.ejemplo.com/v1" aria-label="Dirección del servidor ${i+1}"><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}">`;
     const sel=row.querySelector("select");
     for(const [k,p] of Object.entries(PROVIDERS)) sel.append(new Option(p.name,k));
+    if(!PROVIDERS[c.prov]) c.prov="custom";
     sel.value=c.prov;
-    const [kIn,mIn]=row.querySelectorAll("input");
-    kIn.value=c.key||""; mIn.value=c.model||""; mIn.placeholder="Modelo (vacío = "+PROVIDERS[c.prov].model+")";
-    sel.onchange=()=>{ c.prov=sel.value; mIn.placeholder="Modelo (vacío = "+PROVIDERS[c.prov].model+")"; };
-    kIn.oninput=()=>{ c.key=kIn.value; }; mIn.oninput=()=>{ c.model=mIn.value; };
+    const [bIn,kIn,mIn]=row.querySelectorAll("input");
+    const sync=()=>{ const cu=c.prov==="custom"; bIn.hidden=!cu;
+      mIn.placeholder= cu ? "Modelo (obligatorio en otro servidor)" : "Modelo (vacío = "+PROVIDERS[c.prov].model+")"; };
+    bIn.value=c.base||""; kIn.value=c.key||""; mIn.value=c.model||""; sync();
+    sel.onchange=()=>{ c.prov=sel.value; sync(); };
+    bIn.oninput=()=>{ c.base=bIn.value; }; kIn.oninput=()=>{ c.key=kIn.value; }; mIn.oninput=()=>{ c.model=mIn.value; };
     row.querySelector('[data-act="up"]').onclick=()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderKeys(); };
     row.querySelector('[data-act="del"]').onclick=()=>{ draft.splice(i,1); if(!draft.length) draft.push({prov:"groq",key:"",model:""}); renderKeys(); };
     keysEl.append(row);
@@ -599,12 +712,12 @@ function setGh(){ const u=ghUrl(cfg.github); const a=$("gh"); a.hidden=!u; if(u)
 setGh();
 function openSettings(){
   draft=cfg.chain.map(c=>({...c})); draftSkills=cfg.skills.map(s=>({...s}));
-  renderKeys(); renderSkills(); $("ghuser").value=cfg.github||""; memEl.value=cfg.memory; lesEl.value=cfg.lessons; vRate.value=cfg.rate||"1";
+  renderKeys(); renderSkills(); renderServers(); renderSkillCatalog(); $("ghuser").value=cfg.github||""; memEl.value=cfg.memory; lesEl.value=cfg.lessons; vRate.value=cfg.rate||"1";
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 }
 $("settings").onclick=openSettings;
 $("dlg-form").onsubmit=()=>{
-  const clean=draft.map(c=>({prov:c.prov, key:(c.key||"").trim(), model:(c.model||"").trim()}));
+  const clean=draft.map(c=>{ const o={prov:c.prov, key:(c.key||"").trim(), model:(c.model||"").trim()}; if(c.prov==="custom") o.base=(c.base||"").trim(); return o; });
   cfg.chain=clean.filter(c=>c.key); if(!cfg.chain.length) cfg.chain=[clean[0]||{prov:"groq",key:"",model:""}];
   cfg.skills=draftSkills; cfg.memory=memEl.value.trim(); cfg.lessons=lesEl.value.trim();
   cfg.github=$("ghuser").value.trim(); setGh();
