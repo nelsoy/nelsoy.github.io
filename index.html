@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Brújula IA</title>
+<meta name="theme-color" content="#0E1220">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F5F7FB; --surface:#FFFFFF; --ink:#141B2D; --muted:#5B6479; --line:#DDE2EC;
+  --accent:#2B59C3; --accent-ink:#FFFFFF; --amber:#C9821F; --user:#E6ECFA;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0E1220; --surface:#161B2C; --ink:#E8ECF6; --muted:#98A1B8; --line:#262D44;
+  --accent:#7C9CF0; --accent-ink:#0E1220; --amber:#E9AE55; --user:#1E2742; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+.app{height:100%;display:flex;flex-direction:column;max-width:820px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:center;gap:10px;padding-block:14px 10px;border-bottom:1px solid var(--line)}
+.logo{width:36px;height:36px;flex:none}
+h1{font-family:var(--display);font-size:21px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:12.5px;margin:0}
+.spacer{flex:1}
+.ghost{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font:500 13px var(--body);cursor:pointer}
+.ghost:hover{color:var(--ink);border-color:var(--muted)}
+.icon-btn{width:36px;height:36px;padding:0;display:grid;place-items:center}
+.icon-btn[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
+.spk .off{display:none}.spk[aria-pressed="false"] .on{display:none}.spk[aria-pressed="false"] .off{display:inline}
+#log{flex:1;overflow-y:auto;padding-block:18px;display:flex;flex-direction:column;gap:16px;min-height:0}
+.welcome h2{font-family:var(--display);font-size:clamp(23px,5vw,32px);line-height:1.15;margin:6px 0 6px;text-wrap:balance}
+.welcome p{color:var(--muted);margin:0 0 16px;max-width:60ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.sug{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--ink);font:400 14px/1.4 var(--body);display:flex;flex-direction:column;gap:4px}
+.sug b{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+.sug:hover{border-color:var(--accent)}
+.msg{max-width:88%;min-width:0;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--user);border-radius:14px 14px 4px 14px;padding:10px 14px;white-space:pre-wrap}
+.msg.bot{align-self:flex-start}
+.msg.bot .who{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.msg.bot .txt :first-child{margin-top:0}
+.msg.bot .txt h3{font-family:var(--display);font-size:17px;margin:14px 0 6px}
+.msg.bot .txt ul,.msg.bot .txt ol{padding-left:22px;margin:6px 0}
+.msg.bot .txt p{margin:6px 0}
+.msg.bot .txt code{background:var(--user);padding:1px 5px;border-radius:4px;font-size:13px}
+.thinking{color:var(--muted);font-style:italic}
+.err{color:var(--amber);font-size:13px;margin-top:6px}
+.cats{display:flex;gap:6px;overflow-x:auto;padding-block:10px 6px;scrollbar-width:none}
+.cat{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 12px;font:500 13px var(--body);cursor:pointer}
+.cat[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+form{display:flex;gap:8px;align-items:flex-end;padding-block:4px 10px}
+textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 12px;font:400 15px/1.4 var(--body);max-height:160px}
+textarea:focus,button:focus-visible,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.send{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:0 16px;height:44px;font:600 14px var(--body);cursor:pointer;flex:none}
+.mic{flex:none;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center;padding:0}
+.mic[aria-pressed="true"]{background:var(--amber);border-color:var(--amber);color:#141B2D;animation:micpulse 1.2s ease-in-out infinite}
+@keyframes micpulse{50%{box-shadow:0 0 0 7px rgba(233,174,85,.25)}}
+.note{color:var(--muted);font-size:12px;text-align:center;padding-bottom:10px;margin:0}
+
+/* Ajustes */
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,14,26,.55)}
+.dlg{padding:20px;display:flex;flex-direction:column;gap:14px}
+.dlg h2{font-family:var(--display);font-size:20px;margin:0}
+.dlg p{margin:0;color:var(--muted);font-size:13.5px}
+.field{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;font:400 15px var(--body);width:100%;max-height:none}
+dialog{overflow-y:auto;overflow-x:hidden}
+.field{min-width:0}.field select,.keyrow select{max-width:100%;text-overflow:ellipsis}
+.sec{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.sec h3{margin:0;font:600 16px var(--display)}
+.keyrow{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.keyhead{display:flex;gap:6px;align-items:center}
+.keyrow select,.keyrow input{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 10px;font:400 14px var(--body);width:100%;min-width:0}
+.keyhead select{flex:1;width:auto}
+.num{font:600 12px var(--body);color:var(--accent);width:18px;text-align:center;flex:none}
+.mini{padding:6px 10px;flex:none}.mini:disabled{opacity:.35;cursor:default}
+.skill{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)}
+.skill input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent);flex:none}
+.skill div{flex:1;min-width:0}.skill b{font-size:14px;display:block}.skill small{color:var(--muted);font-size:12.5px;display:block}
+details.help summary{cursor:pointer;color:var(--accent);font-size:13.5px;font-weight:600}
+details.help[open]{display:flex;flex-direction:column;gap:8px}
+.help ul{margin:6px 0;padding-left:18px;font-size:13px;color:var(--muted)}.help a{color:var(--accent)}
+.fb{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:4px 11px;font:500 12px var(--body);cursor:pointer}
+.chip:hover{color:var(--ink);border-color:var(--accent)}
+.fb-in{flex:1;min-width:180px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font:400 13px var(--body)}
+.fb-done{font-size:12px;color:var(--muted)}
+.links{display:flex;flex-direction:column;gap:6px}
+.linkcard{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);text-decoration:none;color:var(--ink)}
+.linkcard b{font-size:14px;color:var(--accent)}.linkcard small{color:var(--muted);font-size:12.5px;font-weight:400}
+.linkcard:hover{border-color:var(--accent)}
+a.icon-btn{text-decoration:none}
+.field small{font-weight:400;color:var(--muted)}
+.field a{color:var(--accent)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .field{flex:1;min-width:140px}
+.dlg-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 18px;font:600 14px var(--body);cursor:pointer}
+.steps{margin:0;padding-left:20px;font-size:13.5px;color:var(--muted)}
+.steps li{margin:2px 0}
+
+/* Rumbo */
+.bru-wrap{position:relative;flex:none;width:50px;height:56px;align-self:flex-end}
+.bru{all:unset;cursor:pointer;display:block;width:50px;height:56px}
+.bru:focus-visible{outline:2px solid var(--accent);border-radius:12px}
+.bru svg{width:100%;height:100%;overflow:visible}
+.bru .m-body{transform-origin:32px 66px;animation:bob 2.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-3px)}}
+.bru .m-shadow{transform-box:fill-box;transform-origin:center;animation:shadow 2.6s ease-in-out infinite}
+@keyframes shadow{50%{transform:scaleX(.75);opacity:.15}}
+.bru .m-light{animation:light 1.8s ease-in-out infinite}
+@keyframes light{50%{opacity:.35}}
+.bru.thinking .m-light{animation-duration:.4s}
+.bru .m-look{transition:transform .3s ease}
+.bru .m-eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.bru .m-needle{transform-box:fill-box;transform-origin:center}
+.bru.thinking .m-needle{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bru.thinking .m-look{transform:translate(2px,-3px)}
+.bru.listening .m-look{transform:translate(-1px,2px)}
+.bru .m-open,.bru .m-sad{display:none}
+.bru.talking .m-smile,.bru.oops .m-smile{display:none}
+.bru.talking .m-open{display:inline;transform-box:fill-box;transform-origin:center;animation:talk .22s ease-in-out infinite alternate}
+@keyframes talk{from{transform:scaleY(.3)}to{transform:scaleY(1)}}
+.bru.oops .m-sad{display:inline}
+.bru.happy .m-body{animation:hop .5s ease-out 2}
+@keyframes hop{40%{transform:translateY(-10px) rotate(-6deg)}}
+.bru.oops .m-body{animation:shake .4s 2}
+@keyframes shake{25%{transform:translateX(-3px) rotate(-5deg)}75%{transform:translateX(3px) rotate(5deg)}}
+.bru .m-cheek{opacity:.35;transition:opacity .3s}
+.bru.happy .m-cheek{opacity:.8}
+.bru-bubble{position:absolute;bottom:calc(100% + 8px);left:0;width:max-content;max-width:min(240px,70vw);background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:8px 12px;font-size:13px;line-height:1.4;box-shadow:0 6px 18px rgba(0,0,0,.14);animation:pop .25s ease-out;z-index:5}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.95)}}
+@media (prefers-reduced-motion: reduce){.bru *,.bru-bubble,.mic{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="18" style="fill:none;stroke:var(--accent);stroke-width:2.5"/>
+      <path d="M20 7 L24 20 L20 33 L16 20 Z" style="fill:var(--accent)"/>
+      <path d="M20 20 L24 20 L20 33 L16 20 Z" style="fill:var(--amber)"/>
+      <circle cx="20" cy="20" r="2" style="fill:var(--surface)"/>
+    </svg>
+    <div><h1>Brújula IA</h1><p class="sub">Orientación sin rodeos, con humor</p></div>
+    <div class="spacer"></div>
+    <button class="ghost icon-btn spk" id="spk" type="button" aria-pressed="false" aria-label="Leer respuestas en voz alta" title="Voz desactivada"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path class="off" d="M16 9l5 6M21 9l-5 6"/></svg></button>
+    <a class="ghost icon-btn" id="gh" href="#" target="_blank" rel="noopener" aria-label="Abrir mi GitHub" title="Mi GitHub" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"/></svg></a>
+    <button class="ghost icon-btn" id="settings" type="button" aria-label="Ajustes" title="Ajustes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <button class="ghost icon-btn" id="reset" type="button" aria-label="Nueva conversación" title="Nueva conversación"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  </header>
+
+  <main id="log" aria-live="polite"></main>
+
+  <nav class="cats" id="cats" aria-label="Categoría"></nav>
+  <form id="f">
+    <div class="bru-wrap">
+      <div class="bru-bubble" id="bru-bubble" role="status" hidden></div>
+      <button type="button" class="bru idle" id="bru" aria-label="Rumbo, tu robot guía. Toca para un consejo">
+        <svg viewBox="0 0 64 72" aria-hidden="true">
+          <ellipse class="m-shadow" cx="32" cy="68" rx="13" ry="2.6" style="fill:var(--accent);opacity:.3"/>
+          <g class="m-body">
+          <line x1="32" y1="15" x2="32" y2="8" style="stroke:var(--accent);stroke-width:2.5;stroke-linecap:round"/>
+          <g class="m-needle"><path d="M32 0.5 L35 5 L29 5Z" style="fill:var(--accent)"/><path d="M32 9.5 L35 5 L29 5Z" style="fill:var(--amber)"/></g>
+          <circle class="m-light" cx="32" cy="5" r="6" style="fill:var(--amber);opacity:0"/>
+          <circle cx="8" cy="36" r="4" style="fill:var(--surface);stroke:var(--accent);stroke-width:2.5"/>
+          <circle cx="56" cy="36" r="4" style="fill:var(--surface);stroke:var(--accent);stroke-width:2.5"/>
+          <rect x="10" y="14" width="44" height="42" rx="17" style="fill:var(--surface);stroke:var(--accent);stroke-width:3"/>
+          <rect x="16" y="21" width="32" height="22" rx="10" style="fill:#141B2D"/>
+          <g class="m-look"><g class="m-eyes" style="fill:#9FB6F5"><rect x="21.5" y="26" width="7" height="8" rx="3.5"/><rect x="35.5" y="26" width="7" height="8" rx="3.5"/></g></g>
+          <path class="m-smile" d="M28.5 37.5 Q32 40.5 35.5 37.5" style="fill:none;stroke:#9FB6F5;stroke-width:2;stroke-linecap:round"/>
+          <ellipse class="m-open" cx="32" cy="38.6" rx="2.6" ry="2" style="fill:#9FB6F5"/>
+          <path class="m-sad" d="M28.5 39.8 Q32 36.8 35.5 39.8" style="fill:none;stroke:#9FB6F5;stroke-width:2;stroke-linecap:round"/>
+          <circle class="m-cheek" cx="16" cy="49" r="2.6" style="fill:var(--amber)"/><circle class="m-cheek" cx="48" cy="49" r="2.6" style="fill:var(--amber)"/>
+          <rect x="27" y="47.5" width="10" height="3" rx="1.5" style="fill:var(--line)"/>
+        </g></svg>
+      </button>
+    </div>
+    <textarea id="q" rows="1" placeholder="Escribe o habla…" aria-label="Tu mensaje"></textarea>
+    <button class="mic" id="mic" type="button" aria-pressed="false" aria-label="Hablar" title="Hablar" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button class="send" id="send" type="submit">Enviar</button>
+  </form>
+  <p class="note">Orientación general. Para temas legales, médicos o financieros importantes, confirma con un profesional.</p>
+</div>
+
+<dialog id="dlg">
+  <form class="dlg" method="dialog" id="dlg-form">
+    <h2>Ajustes de Brújula IA</h2>
+    <section class="sec">
+      <h3>Claves de IA</h3>
+      <p>Agrega varias claves gratis. Si una llega a su límite, Rumbo pasa sola a la siguiente, en este orden. Se guardan solo en este teléfono.</p>
+      <div id="keys" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div><button class="ghost" type="button" id="add-key">+ Agregar otra clave</button></div>
+      <div><p style="margin-bottom:8px"><b style="color:var(--ink)">Crea tus claves gratis aquí:</b></p><div class="links" id="key-help"></div></div>
+    </section>
+    <section class="sec">
+      <h3>Skills</h3>
+      <p>Actívalas para cambiar cómo responde Rumbo, o crea las tuyas.</p>
+      <div id="skills"></div>
+      <details class="help"><summary>+ Crear una skill nueva</summary>
+        <label class="field" for="sk-name">Nombre<input id="sk-name" type="text" placeholder="Ej.: Experto en bienes raíces"></label>
+        <label class="field" for="sk-text">Instrucciones para Rumbo<textarea id="sk-text" rows="3" placeholder="Ej.: Cuando pregunten por casas, explica opciones de préstamo FHA y con ITIN, y los costos de cierre."></textarea></label>
+        <div><button class="ghost" type="button" id="sk-add">Agregar skill</button></div>
+      </details>
+    </section>
+    <section class="sec">
+      <h3>Lo que Rumbo aprende</h3>
+      <label class="field" for="memory">Lo que sabe de ti
+        <textarea id="memory" rows="3" placeholder="Ej.: Vivo en Chicago. Tengo un negocio de crédito. Prefiero respuestas cortas."></textarea>
+        <small>En el chat también puedes decirle: «Recuerda que…» y lo anota aquí.</small>
+      </label>
+      <label class="field" for="lessons">Lecciones de tus opiniones
+        <textarea id="lessons" rows="3" placeholder="Se llena sola cuando tocas «Mejorar» en una respuesta."></textarea>
+      </label>
+    </section>
+    <section class="sec">
+      <h3>Mi GitHub</h3>
+      <label class="field" for="ghuser">Usuario o enlace de tu cuenta de GitHub
+        <input id="ghuser" type="text" autocomplete="off" spellcheck="false" placeholder="Ej.: micuenta o https://github.com/micuenta">
+        <small>Aparece un botón con el símbolo &lt;/&gt; arriba para abrirla con un toque.</small>
+      </label>
+    </section>
+    <section class="sec">
+    <h3>Voz</h3>
+    <div class="row">
+      <label class="field" for="vvoice">Voz de Rumbo
+        <select id="vvoice"><option value="">Automática</option></select>
+      </label>
+      <label class="field" for="vrate">Velocidad
+        <select id="vrate"><option value="0.85">Lenta</option><option value="1" selected>Normal</option><option value="1.15">Rápida</option><option value="1.3">Muy rápida</option></select>
+      </label>
+    </div>
+    </section>
+    <div class="dlg-actions">
+      <button class="ghost" id="vtest" type="button">Probar voz</button>
+      <button class="primary" id="save" type="submit" value="save">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const PROVIDERS = {
+  groq:{name:"Groq (gratis, muy rápido)", base:"https://api.groq.com/openai/v1", model:"llama-3.3-70b-versatile",
+    keyUrl:"https://console.groq.com/keys", steps:["Entra a console.groq.com y crea una cuenta gratis (con Google o correo).","Ve a \"API Keys\" y toca \"Create API Key\".","Copia la clave (empieza con gsk_) y pégala abajo."]},
+  gemini:{name:"Google Gemini (gratis)", base:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-2.5-flash",
+    keyUrl:"https://aistudio.google.com/apikey", steps:["Entra a aistudio.google.com con tu cuenta de Google.","Toca \"Get API key\" y luego \"Create API key\".","Copia la clave (empieza con AIza) y pégala abajo."]},
+  openrouter:{name:"OpenRouter (modelos gratis)", base:"https://openrouter.ai/api/v1", model:"meta-llama/llama-3.3-70b-instruct:free",
+    keyUrl:"https://openrouter.ai/keys", steps:["Entra a openrouter.ai y crea una cuenta gratis.","Ve a \"Keys\" y crea una clave nueva.","Copia la clave (empieza con sk-or-) y pégala abajo."]},
+  mistral:{name:"Mistral (plan gratis)", base:"https://api.mistral.ai/v1", model:"mistral-small-latest",
+    keyUrl:"https://console.mistral.ai/api-keys", steps:["Entra a console.mistral.ai y crea una cuenta.","Elige el plan gratis \"Experiment\".","En \"API Keys\" crea una clave y pégala abajo."]},
+  cerebras:{name:"Cerebras (gratis, muy rápido)", base:"https://api.cerebras.ai/v1", model:"llama-3.3-70b",
+    keyUrl:"https://cloud.cerebras.ai", steps:["Entra a cloud.cerebras.ai y crea una cuenta gratis.","Ve a \"API Keys\" y genera una clave.","Cópiala (empieza con csk-) y pégala abajo."]}
+};
+const CATS = ["General","Finanzas y crédito","Negocios","Legal y trámites","Salud y bienestar","Tecnología","Educación","Trabajo y carrera","Hogar","Viajes","Relaciones","Inmigración"];
+const SUGS = [
+  ["Finanzas y crédito","¿Cómo empiezo a construir mi crédito desde cero?"],
+  ["Negocios","Quiero abrir una LLC, ¿por dónde empiezo?"],
+  ["Legal y trámites","¿Qué hago si recibo una carta de cobro de deuda?"],
+  ["Salud y bienestar","Dame una rutina sencilla para dormir mejor."],
+  ["Tecnología","¿Cómo protejo mis cuentas de hackeos?"],
+  ["Trabajo y carrera","Ayúdame a prepararme para una entrevista de trabajo."]
+];
+const RULES = `Eres "Brújula IA", un asistente de orientación general en español, representado por un robot simpático llamado Rumbo. Ayudas a cualquier persona en cualquier categoría: finanzas y crédito, negocios, trámites legales, salud, tecnología, educación, trabajo, hogar, viajes, relaciones, inmigración y más.
+Estilo: atrevido, franco y con mucho humor. Hablas como un amigo listo y sin pelos en la lengua: usas sarcasmo ingenioso, comparaciones graciosas y opiniones claras. Nada de respuestas tibias ni de "depende" sin aterrizar; si algo es mala idea, lo dices con gracia y explicas por qué. Puedes bromear con temas polémicos o incómodos y dar tu opinión cuando te la piden, siempre con respeto hacia la persona. Usa expresiones latinas naturales. Responde SIEMPRE en español.
+Formato: empieza con la respuesta clave en 1-2 frases; luego pasos concretos numerados o viñetas cortas; termina, si ayuda, con una sola pregunta para afinar la orientación. Usa **negritas** para lo importante y "### " para subtítulos solo si la respuesta es larga. Sé conciso.
+En temas legales, médicos, fiscales o de inversión: da información general útil y recomienda confirmar con un profesional, sin sermones. Si alguien parece estar en peligro o crisis, prioriza su seguridad y sugiere ayuda inmediata. No ayudes con nada que cause daño real (armas, fraudes, hackeos, drogas).
+No inventes datos, precios ni leyes específicas si no estás seguro; dilo y explica cómo verificarlo.`;
+
+const $ = id => document.getElementById(id);
+const log=$("log"), q=$("q"), sendBtn=$("send"), catsEl=$("cats"), dlg=$("dlg");
+let cat="General", turns=[], busy=false, ctl=null;
+
+// --- Almacenamiento local seguro ---
+function load(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+function save(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+const DEFAULT_SKILLS = [
+  {id:"credito", name:"Experto en crédito y finanzas", on:false, text:"En temas de dinero o crédito da pasos concretos: puntaje FICO, utilización bajo 30%, tarjetas aseguradas, opciones con ITIN, presupuesto. Advierte sobre estafas de reparación de crédito y promesas imposibles."},
+  {id:"facil", name:"Explícamelo fácil", on:false, text:"Explica como si hablaras con alguien sin experiencia, con ejemplos de la vida diaria y sin tecnicismos."},
+  {id:"corto", name:"Respuestas cortas", on:false, text:"Responde en máximo 5 líneas, salvo que te pidan más detalle."},
+  {id:"bilingue", name:"Bilingüe para trámites en EE. UU.", on:false, text:"Cuando menciones trámites o términos de Estados Unidos, pon el nombre oficial en inglés entre paréntesis junto a la explicación en español."},
+  {id:"coach", name:"Coach motivador", on:false, text:"Termina cada respuesta con una frase de ánimo breve y realista."}
+];
+let cfg = Object.assign({chain:null, skills:null, memory:"", lessons:"", voice:"", rate:"1", voiceOn:false}, load("brujula-cfg",{}));
+if(!Array.isArray(cfg.chain)){
+  cfg.chain=[];
+  for(const [p,k] of Object.entries(cfg.keys||{})) if(k) cfg.chain.push({prov:p, key:k, model:(cfg.models||{})[p]||""});
+}
+delete cfg.keys; delete cfg.models; delete cfg.prov;
+if(!cfg.chain.length) cfg.chain=[{prov:"groq", key:"", model:""}];
+if(!Array.isArray(cfg.skills)) cfg.skills=DEFAULT_SKILLS.map(s=>({...s}));
+function hasKey(){ return cfg.chain.some(c=>(c.key||"").trim()); }
+function systemPrompt(){
+  let s=RULES;
+  const act=cfg.skills.filter(k=>k.on);
+  if(act.length) s+="\n\nSkills activas (aplícalas):\n"+act.map(k=>`- ${k.name}: ${k.text}`).join("\n");
+  if(cfg.memory.trim()) s+="\n\nLo que sabes del usuario (úsalo para personalizar, sin repetirlo en cada respuesta):\n"+cfg.memory.trim();
+  if(cfg.lessons.trim()) s+="\n\nLecciones de sus opiniones sobre tus respuestas (síguelas siempre):\n"+cfg.lessons.trim();
+  return s;
+}
+
+// --- Categorías y bienvenida ---
+CATS.forEach(c=>{
+  const b=document.createElement("button"); b.type="button"; b.className="cat"; b.textContent=c;
+  b.setAttribute("aria-pressed", c===cat); b.onclick=()=>setCat(c); catsEl.append(b);
+});
+function setCat(c){ cat=c; [...catsEl.children].forEach(x=>x.setAttribute("aria-pressed", x.textContent===cat)); }
+function welcome(){
+  log.innerHTML = `<section class="welcome"><h2>Pregunta lo que quieras. Te contesto sin rodeos.</h2>
+  <p>Pregúntame sobre dinero, negocios, trámites, salud, tecnología o lo que necesites. Escribe o toca el micrófono para hablarme.</p>
+  <div class="grid"></div></section>`;
+  const g=log.querySelector(".grid");
+  SUGS.forEach(([c,t])=>{
+    const b=document.createElement("button"); b.type="button"; b.className="sug";
+    b.innerHTML="<b></b><span></span>"; b.querySelector("b").textContent=c; b.querySelector("span").textContent=t;
+    b.onclick=()=>{ setCat(c); ask(t); }; g.append(b);
+  });
+}
+
+// --- Markdown mínimo ---
+function esc(s){return s.replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
+function inline(s){return esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<em>$2</em>")}
+function md(src){
+  const out=[]; let list=null; const close=()=>{ if(list){ out.push(`</${list}>`); list=null; } };
+  for(const raw of src.split("\n")){
+    const line=raw.trimEnd(); let m;
+    if(m=line.match(/^#{1,6}\s+(.*)/)){ close(); out.push(`<h3>${inline(m[1])}</h3>`); }
+    else if(m=line.match(/^\s*[-*•]\s+(.*)/)){ if(list!=="ul"){ close(); out.push("<ul>"); list="ul"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if(m=line.match(/^\s*\d+[.)]\s+(.*)/)){ if(list!=="ol"){ close(); out.push("<ol>"); list="ol"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if(!line.trim()) close();
+    else { close(); out.push(`<p>${inline(line)}</p>`); }
+  }
+  close(); return out.join("");
+}
+function add(role,text){
+  const d=document.createElement("div"); d.className="msg "+role;
+  if(role==="user") d.textContent=text;
+  else d.innerHTML=`<div class="who">Rumbo</div><div class="txt"><span class="thinking">Pensando…</span></div>`;
+  log.append(d); log.scrollTop=log.scrollHeight; return d;
+}
+
+// --- Llamada a la IA (formato compatible con OpenAI, con streaming) ---
+// Prueba cada clave en orden; si una falla o llega a su límite, pasa a la siguiente.
+async function callAI(messages, onText, signal){
+  const list=cfg.chain.filter(c=>(c.key||"").trim());
+  if(!list.length) throw {code:"no_key"};
+  let last;
+  for(let i=0;i<list.length;i++){
+    const c=list[i], p=PROVIDERS[c.prov]||PROVIDERS.groq; let streamed=false;
+    try{
+      const text=await callOne(p, c, messages, t=>{ streamed=true; onText(t); }, signal);
+      return {text, via:p.name.split(" ")[0]+" #"+(cfg.chain.indexOf(c)+1)};
+    }catch(e){
+      if(e?.name==="AbortError" || streamed) throw e;
+      last=e;
+      if(i<list.length-1) say("thinking","Esa clave se cansó. Probando la siguiente…",0);
+    }
+  }
+  if(list.length>1 && last) last.all=true;
+  throw last;
+}
+async function callOne(p, c, messages, onText, signal){
+  const headers={"Content-Type":"application/json","Authorization":"Bearer "+c.key.trim()};
+  if(c.prov==="openrouter"){ headers["HTTP-Referer"]=location.origin||"https://brujula-ia.app"; headers["X-Title"]="Brujula IA"; }
+  const res=await fetch(p.base+"/chat/completions",{method:"POST",headers,signal,
+    body:JSON.stringify({model:(c.model||"").trim()||p.model, messages, stream:true, temperature:0.8, max_tokens:1200})});
+  if(!res.ok){ let detail=""; try{ detail=(await res.json())?.error?.message||""; }catch(e){} throw {code:"http", status:res.status, detail}; }
+  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="";
+  while(true){
+    const {value,done}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split("\n"); buf=lines.pop();
+    for(const l of lines){
+      const s=l.trim(); if(!s.startsWith("data:")) continue;
+      const data=s.slice(5).trim(); if(data==="[DONE]") continue;
+      try{ const j=JSON.parse(data); const d=j.choices?.[0]?.delta?.content; if(d){ text+=d; onText(text); } }catch(e){}
+    }
+  }
+  if(!text.trim()) throw {code:"empty"};
+  return text;
+}
+function errText(e){
+  if(e?.code==="no_key") return "Falta tu clave de API. Toca el engrane ⚙ arriba para ponerla.";
+  if(e?.code==="empty") return "La IA no devolvió respuesta. Intenta de nuevo.";
+  if(e?.code==="http"){
+    if(e.status===401||e.status===403) return "Tu clave no funciona. Revísala en Ajustes (⚙).";
+    if(e.all) return "Probé todas tus claves y ninguna respondió (último error: "+e.status+"). Espera un rato o agrega otra clave en Ajustes (⚙).";
+    if(e.status===429) return "Llegaste al límite gratis por ahora. Espera un rato o agrega otra clave en Ajustes (⚙).";
+    if(e.status===404||e.status===400) return "El modelo no está disponible. Revisa el nombre del modelo en Ajustes. "+(e.detail||"");
+    return "Error del proveedor ("+e.status+"). "+(e.detail||"");
+  }
+  return "No hay conexión con la IA. Revisa tu internet e intenta de nuevo.";
+}
+
+async function ask(text){
+  text=text.trim(); if(!text||busy) return;
+  if(!hasKey()){ openSettings(); say("oops","Primero necesito una clave gratis. Toca «¿Cómo consigo claves gratis?»."); return; }
+  const rm=text.match(/^recuerda(?:\s+que)?[,:]?\s+(.+)/i);
+  if(rm){ cfg.memory=(cfg.memory.trim()?cfg.memory.trim()+"\n":"")+"- "+rm[1].trim(); save("brujula-cfg",cfg); }
+  if(log.querySelector(".welcome")) log.innerHTML="";
+  busy=true; sendBtn.textContent="Detener"; q.value=""; q.style.height="";
+  stopSpeaking();
+  add("user",text); say("thinking");
+  turns.push({role:"user", content: cat==="General" ? text : `[Categoría: ${cat}] ${text}`});
+  const bubble=add("bot"), txt=bubble.querySelector(".txt");
+  ctl=new AbortController();
+  try{
+    const {text:ans, via}=await callAI([{role:"system",content:systemPrompt()}, ...turns.slice(-20)], t=>{
+      if(mState!=="talking") say("talking"); txt.innerHTML=md(t); log.scrollTop=log.scrollHeight;
+    }, ctl.signal);
+    turns.push({role:"assistant",content:ans});
+    bubble.querySelector(".who").textContent="Rumbo · "+via;
+    addFeedback(bubble);
+    say("happy"); speakAnswer(ans);
+  }catch(e){
+    turns.pop();
+    if(e?.name==="AbortError"){ if(!txt.textContent.trim()||txt.querySelector(".thinking")) txt.innerHTML=`<p class="err">Detenido.</p>`; say("idle","Ok, freno aquí."); }
+    else { if(txt.querySelector(".thinking")) txt.innerHTML=""; txt.insertAdjacentHTML("beforeend",`<p class="err">${esc(errText(e))}</p>`); say("oops"); }
+  }
+  busy=false; ctl=null; sendBtn.textContent="Enviar"; viaVoice=false;
+}
+
+$("f").onsubmit=e=>{ e.preventDefault(); if(busy){ ctl?.abort(); return; } ask(q.value); };
+q.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey&&!/Android|iPhone|iPad/i.test(navigator.userAgent)){ e.preventDefault(); if(!busy) ask(q.value); } });
+q.addEventListener("input",()=>{ q.style.height="auto"; q.style.height=Math.min(q.scrollHeight,160)+"px"; if(!busy && q.value.trim() && mState!=="listening") say("listening",null,2500); });
+$("reset").onclick=()=>{ ctl?.abort(); stopSpeaking(); turns=[]; welcome(); say("happy","Borrón y cuenta nueva."); };
+
+// --- Rumbo ---
+const M=$("bru"), MB=$("bru-bubble"); let mState="idle", mTimer;
+const QUIPS={
+  thinking:["Procesando… bip bup.","Déjame pensar…","Calculando la ruta…","Un segundito, que esto tiene miga."],
+  happy:["¡Listo! ¿Algo más?","Ahí lo tienes.","Norte encontrado.","¿Te sirvió? Si no, me lo dices sin pena."],
+  oops:["Uy, me perdí. Intenta otra vez.","Se me cruzaron los cables."],
+  listening:["Te escucho…","Dale, cuéntame.","Ajam, sigue…"],
+  idle:["¿Atascado con algo? Pregúntame.","Tócame si quieres un consejo rápido.","Elige una categoría y te afino la respuesta."]
+};
+const TIPS=["Tip: toca el micrófono y háblame, te contesto en voz alta.","Tip: la bocina de arriba hace que te lea todas las respuestas.","Tip: elige una categoría abajo y mis respuestas van más al grano.","Tip: si mi respuesta no te convence, pídeme que lo explique más simple.","Tip: en ⚙ Ajustes cambias mi voz y la IA que uso."];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function say(state,text,ms){
+  mState=state; M.className="bru "+state; clearTimeout(mTimer);
+  const t = text ?? (QUIPS[state] ? pick(QUIPS[state]) : "");
+  if(state==="talking"){ MB.hidden=true; return; }
+  if(t){ MB.textContent=t; MB.hidden=false; MB.style.animation="none"; void MB.offsetWidth; MB.style.animation=""; }
+  const life = ms ?? (state==="thinking" ? 0 : 4200);
+  if(life) mTimer=setTimeout(()=>{ MB.hidden=true; if(mState===state && (state==="happy"||state==="oops")){ mState="idle"; M.className="bru idle"; } }, life);
+}
+M.onclick=()=>{ if(!busy) say("happy", pick(TIPS), 5000); };
+setInterval(()=>{ if(!busy && MB.hidden && mState==="idle" && document.visibilityState==="visible" && Math.random()<.4) say("idle"); }, 40000);
+
+// --- Voz: hablar (micrófono) ---
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn=$("mic"); let rec=null, listening=false, viaVoice=false, dictBase="";
+const LANG = (navigator.language||"").toLowerCase().startsWith("es") ? navigator.language : "es-US";
+if(SR){
+  micBtn.hidden=false;
+  micBtn.onclick=()=>{
+    if(busy) return;
+    if(listening){ rec?.stop(); return; }
+    stopSpeaking();
+    rec=new SR(); rec.lang=LANG; rec.interimResults=true; rec.continuous=false;
+    dictBase=q.value.trim();
+    rec.onstart=()=>{ listening=true; micBtn.setAttribute("aria-pressed","true"); say("listening","Te escucho… habla con confianza.",0); };
+    rec.onresult=e=>{
+      let fin="", tmp="";
+      for(let i=0;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) fin+=r[0].transcript; else tmp+=r[0].transcript; }
+      q.value=[dictBase, fin, tmp].filter(Boolean).join(" ").replace(/\s+/g," ");
+    };
+    rec.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed"){ say("oops","Sin permiso de micrófono. Actívalo en Chrome o escríbeme."); } };
+    rec.onend=()=>{
+      listening=false; micBtn.setAttribute("aria-pressed","false");
+      if(mState==="listening"){ MB.hidden=true; mState="idle"; M.className="bru idle"; }
+      if(q.value.trim() && !busy){ viaVoice=true; ask(q.value); }
+    };
+    try{ rec.start(); }catch(e){ say("oops","No pude abrir el micrófono."); }
+  };
+}
+
+// --- Voz: Rumbo habla ---
+const synth = window.speechSynthesis, spkBtn=$("spk"), vVoice=$("vvoice"), vRate=$("vrate");
+let esVoices=[];
+function setSpk(){ spkBtn.setAttribute("aria-pressed", !!cfg.voiceOn); spkBtn.title = cfg.voiceOn ? "Voz activada" : "Voz desactivada"; }
+function loadVoices(){
+  if(!synth) return;
+  esVoices = synth.getVoices().filter(v=>v.lang && v.lang.toLowerCase().startsWith("es"));
+  vVoice.innerHTML='<option value="">Automática</option>';
+  esVoices.forEach(v=>{ const o=document.createElement("option"); o.value=v.name; o.textContent=`${v.name} (${v.lang})`; vVoice.append(o); });
+  vVoice.value = cfg.voice && esVoices.some(v=>v.name===cfg.voice) ? cfg.voice : "";
+}
+function plain(s){ return s.replace(/```[\s\S]*?```/g,"").replace(/[#*`_>]/g,"").replace(/^\s*[-•]\s+/gm,"").trim(); }
+function stopSpeaking(){ try{ synth?.cancel(); }catch(e){} }
+function speak(text){
+  if(!synth) return;
+  stopSpeaking();
+  const voice = esVoices.find(v=>v.name===(vVoice.value||cfg.voice)) || esVoices.find(v=>/es[-_](US|MX|419)/i.test(v.lang)) || esVoices[0];
+  const parts = plain(text).match(/[^.!?¿¡\n]+[.!?]*|\n/g)?.map(s=>s.trim()).filter(Boolean) || [];
+  // Agrupa frases en trozos cortos (Chrome corta los textos largos)
+  const chunks=[]; let cur="";
+  for(const p of parts){ if((cur+" "+p).length>180 && cur){ chunks.push(cur); cur=p; } else cur=(cur?cur+" ":"")+p; }
+  if(cur) chunks.push(cur);
+  chunks.forEach((c,i)=>{
+    const u=new SpeechSynthesisUtterance(c);
+    u.lang = voice?.lang || LANG; if(voice) u.voice=voice; u.rate=Number(vRate.value||cfg.rate)||1;
+    if(i===0) u.onstart=()=>say("talking");
+    if(i===chunks.length-1) u.onend=()=>{ if(mState==="talking") say("happy"); };
+    u.onerror=()=>{ if(mState==="talking"){ mState="idle"; M.className="bru idle"; } };
+    synth.speak(u);
+  });
+}
+function speakAnswer(a){ if(synth && (cfg.voiceOn || viaVoice)) speak(a); }
+if(synth){
+  loadVoices(); synth.onvoiceschanged=loadVoices; setSpk();
+  spkBtn.onclick=()=>{ cfg.voiceOn=!cfg.voiceOn; save("brujula-cfg",cfg); setSpk();
+    if(cfg.voiceOn) say("happy","Voz activada. Ahora te leo mis respuestas."); else { stopSpeaking(); say("idle","Voz apagada. Modo silencioso."); } };
+}else spkBtn.hidden=true;
+$("vtest").onclick=()=>speak("Hola, soy Rumbo. Así sueno con esta voz. ¿Me quedo con esta?");
+
+// --- Opinión sobre cada respuesta (Rumbo aprende) ---
+function addFeedback(bubble){
+  const f=document.createElement("div"); f.className="fb";
+  f.innerHTML='<button type="button" class="chip">Me sirvió</button><button type="button" class="chip">Mejorar</button>';
+  const [good,bad]=f.querySelectorAll("button");
+  good.onclick=()=>{ f.innerHTML='<span class="fb-done">¡Gracias! Sigo así.</span>'; say("happy","¡Anotado! Me alegra."); };
+  bad.onclick=()=>{
+    f.innerHTML='<input class="fb-in" type="text" placeholder="¿Qué mejoro? Ej.: más corto, con ejemplos…" aria-label="Qué debe mejorar Rumbo"><button type="button" class="chip">Guardar</button>';
+    const inp=f.querySelector("input"); inp.focus();
+    const go=()=>{ const v=inp.value.trim(); if(!v) return;
+      cfg.lessons=(cfg.lessons.trim()?cfg.lessons.trim()+"\n":"")+"- "+v; save("brujula-cfg",cfg);
+      f.innerHTML='<span class="fb-done">Aprendido. Lo aplico desde ahora.</span>'; say("happy","Anotado en mi cerebrito."); };
+    f.querySelector("button").onclick=go;
+    inp.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } };
+  };
+  bubble.append(f);
+}
+
+// --- Ajustes ---
+const keysEl=$("keys"), skillsEl=$("skills"), memEl=$("memory"), lesEl=$("lessons");
+let draft=[], draftSkills=[];
+$("key-help").innerHTML=Object.values(PROVIDERS).map(p=>`<a class="linkcard" href="${p.keyUrl}" target="_blank" rel="noopener"><b>${esc(p.name)} ↗</b><small>${esc(p.steps.join(" "))}</small></a>`).join("");
+function renderKeys(){
+  keysEl.innerHTML="";
+  draft.forEach((c,i)=>{
+    const row=document.createElement("div"); row.className="keyrow";
+    row.innerHTML=`<div class="keyhead"><span class="num">${i+1}</span><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}">`;
+    const sel=row.querySelector("select");
+    for(const [k,p] of Object.entries(PROVIDERS)) sel.append(new Option(p.name,k));
+    sel.value=c.prov;
+    const [kIn,mIn]=row.querySelectorAll("input");
+    kIn.value=c.key||""; mIn.value=c.model||""; mIn.placeholder="Modelo (vacío = "+PROVIDERS[c.prov].model+")";
+    sel.onchange=()=>{ c.prov=sel.value; mIn.placeholder="Modelo (vacío = "+PROVIDERS[c.prov].model+")"; };
+    kIn.oninput=()=>{ c.key=kIn.value; }; mIn.oninput=()=>{ c.model=mIn.value; };
+    row.querySelector('[data-act="up"]').onclick=()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderKeys(); };
+    row.querySelector('[data-act="del"]').onclick=()=>{ draft.splice(i,1); if(!draft.length) draft.push({prov:"groq",key:"",model:""}); renderKeys(); };
+    keysEl.append(row);
+  });
+}
+$("add-key").onclick=()=>{
+  const used=draft.map(d=>d.prov);
+  draft.push({prov:Object.keys(PROVIDERS).find(k=>!used.includes(k))||"groq", key:"", model:""});
+  renderKeys(); keysEl.lastElementChild?.querySelector('input[type="password"]').focus();
+};
+function renderSkills(){
+  skillsEl.innerHTML="";
+  draftSkills.forEach((s,i)=>{
+    const row=document.createElement("div"); row.className="skill";
+    const id="sk-"+i;
+    row.innerHTML=`<input type="checkbox" id="${id}"><div><label for="${id}"><b></b></label><small></small></div>`;
+    row.querySelector("b").textContent=s.name; row.querySelector("small").textContent=s.text;
+    const cb=row.querySelector("input"); cb.checked=!!s.on; cb.onchange=()=>{ s.on=cb.checked; };
+    if(!DEFAULT_SKILLS.some(d=>d.id===s.id)){
+      const del=document.createElement("button"); del.type="button"; del.className="ghost mini"; del.textContent="✕";
+      del.setAttribute("aria-label","Borrar la skill "+s.name);
+      del.onclick=()=>{ draftSkills.splice(i,1); renderSkills(); };
+      row.append(del);
+    }
+    skillsEl.append(row);
+  });
+}
+$("sk-add").onclick=()=>{
+  const n=$("sk-name").value.trim(), t=$("sk-text").value.trim();
+  if(!n||!t){ ($("sk-name").value.trim()?$("sk-text"):$("sk-name")).focus(); return; }
+  draftSkills.push({id:"c"+Date.now(), name:n, text:t, on:true});
+  $("sk-name").value=""; $("sk-text").value=""; renderSkills();
+};
+function ghUrl(v){ v=(v||"").trim(); if(!v) return ""; if(/^https?:\/\//i.test(v)) return v; return "https://github.com/"+v.replace(/^@/,"").replace(/^github\.com\//i,""); }
+function setGh(){ const u=ghUrl(cfg.github); const a=$("gh"); a.hidden=!u; if(u) a.href=u; }
+setGh();
+function openSettings(){
+  draft=cfg.chain.map(c=>({...c})); draftSkills=cfg.skills.map(s=>({...s}));
+  renderKeys(); renderSkills(); $("ghuser").value=cfg.github||""; memEl.value=cfg.memory; lesEl.value=cfg.lessons; vRate.value=cfg.rate||"1";
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+}
+$("settings").onclick=openSettings;
+$("dlg-form").onsubmit=()=>{
+  const clean=draft.map(c=>({prov:c.prov, key:(c.key||"").trim(), model:(c.model||"").trim()}));
+  cfg.chain=clean.filter(c=>c.key); if(!cfg.chain.length) cfg.chain=[clean[0]||{prov:"groq",key:"",model:""}];
+  cfg.skills=draftSkills; cfg.memory=memEl.value.trim(); cfg.lessons=lesEl.value.trim();
+  cfg.github=$("ghuser").value.trim(); setGh();
+  cfg.voice=vVoice.value; cfg.rate=vRate.value; save("brujula-cfg",cfg);
+  const n=cfg.chain.filter(c=>c.key).length;
+  say("happy", n ? `¡Listo! Tengo ${n} ${n===1?"clave":"claves"} para pensar. Pregúntame algo.` : "Guardado, pero aún falta una clave.");
+};
+vRate.value=cfg.rate||"1";
+
+welcome();
+setTimeout(()=>{ if(!hasKey()){ say("idle","¡Hola! Soy Rumbo. Antes de empezar, toca ⚙ para poner tu clave gratis.",8000); }
+  else say("idle","¡Hola! Soy Rumbo, tu robot guía. Pregúntame lo que sea.",6000); },600);
+if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
