@@ -283,6 +283,7 @@ a.icon-btn{text-decoration:none}
     </div>
     </section>
     <div class="dlg-actions">
+      <small id="ver" style="color:var(--muted);font-size:11.5px;margin-right:auto;align-self:center"></small>
       <button class="ghost" id="vtest" type="button">Probar voz</button>
       <button class="primary" id="save" type="submit" value="save">Guardar</button>
     </div>
@@ -880,6 +881,13 @@ function renderSkillCatalog(){
 $("sk-panel").addEventListener("toggle",e=>{ if(!$("sk-panel").open){ nextSkillBatch(); $("skq").value=""; renderSkillCatalog(); } });
 dlg.addEventListener("close",()=>{ if($("sk-panel").open){ $("sk-panel").open=false; } else { nextSkillBatch(); } });
 $("skq").oninput=renderSkillCatalog;
+function guessProv(k){
+  if(/^gsk_/.test(k)) return "groq";
+  if(/^AIza/.test(k)) return "gemini";
+  if(/^sk-or-/.test(k)) return "openrouter";
+  if(/^hf_/.test(k)) return "hf";
+  return "";
+}
 function keyTitle(c){
   const p=provOf(c), u=(c.key||"").trim()?useOf(c):null;
   let st="sin clave";
@@ -891,7 +899,7 @@ function renderKeys(){
   draft.forEach((c,i)=>{
     const row=document.createElement("details"); row.className="keyrow";
     if(!(c.key||"").trim()) row.open=true;
-    row.innerHTML=`<summary class="keysum"><span class="num">${i+1}</span><b class="kname"></b><span class="kst"></span></summary><div class="keyhead"><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="url" autocomplete="off" spellcheck="false" placeholder="Dirección del servidor, ej.: https://api.ejemplo.com/v1" aria-label="Dirección del servidor ${i+1}"><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}"><div class="usage"></div>`;
+    row.innerHTML=`<summary class="keysum"><span class="num">${i+1}</span><b class="kname"></b><span class="kst"></span></summary><div class="keyhead"><select aria-label="Proveedor de la clave ${i+1}"></select><button type="button" class="ghost mini" data-act="up" aria-label="Subir prioridad" ${i?"":"disabled"}>↑</button><button type="button" class="ghost mini" data-act="del" aria-label="Quitar esta clave">✕</button></div><input type="url" autocomplete="off" spellcheck="false" placeholder="Dirección del servidor, ej.: https://api.ejemplo.com/v1" aria-label="Dirección del servidor ${i+1}"><input type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí la clave" aria-label="Clave ${i+1}"><input type="text" autocomplete="off" spellcheck="false" aria-label="Modelo de la clave ${i+1}"><div class="fb" style="margin-top:0"><button type="button" class="chip" data-act="test">Probar esta clave</button><span class="fb-done" data-out></span></div><div class="usage"></div>`;
     const sel=row.querySelector("select");
     for(const [k,p] of Object.entries(PROVIDERS)) sel.append(new Option(p.name,k));
     if(!PROVIDERS[c.prov]) c.prov="custom";
@@ -902,8 +910,16 @@ function renderKeys(){
       mIn.placeholder= cu ? "Modelo (obligatorio en otro servidor)" : "Modelo (vacío = "+PROVIDERS[c.prov].model+")"; head(); };
     bIn.value=c.base||""; kIn.value=c.key||""; mIn.value=c.model||""; sync();
     sel.onchange=()=>{ c.prov=sel.value; sync(); };
-    bIn.oninput=()=>{ c.base=bIn.value; head(); }; kIn.oninput=()=>{ c.key=kIn.value; head(); }; mIn.oninput=()=>{ c.model=mIn.value; };
+    bIn.oninput=()=>{ c.base=bIn.value; head(); }; kIn.oninput=()=>{ c.key=kIn.value.replace(/\s+/g,""); const g=guessProv(c.key); if(g && g!==c.prov && c.prov!=="custom"){ c.prov=g; sel.value=g; sync(); say("happy","Esa clave es de "+PROVIDERS[g].name.split(" (")[0]+". Ya cambié el proveedor."); } head(); }; mIn.oninput=()=>{ c.model=mIn.value; };
     row.querySelector('[data-act="up"]').onclick=()=>{ [draft[i-1],draft[i]]=[draft[i],draft[i-1]]; renderKeys(); };
+    row.querySelector('[data-act="test"]').onclick=async()=>{
+      const out=row.querySelector("[data-out]");
+      if(!(c.key||"").trim()){ out.textContent="Primero pega la clave."; return; }
+      out.textContent="Probando…";
+      try{ await callOne(provOf(c), c, [{role:"user",content:"Responde solo: ok"}], ()=>{}, undefined);
+        out.textContent="✅ Funciona"+(c.model?" con "+c.model:""); mIn.value=c.model||""; head(); }
+      catch(e){ out.textContent="❌ "+errText(e); }
+    };
     row.querySelector('[data-act="del"]').onclick=()=>{ draft.splice(i,1); if(!draft.length) draft.push({prov:"groq",key:"",model:""}); renderKeys(); };
     keysEl.append(row);
   });
@@ -949,21 +965,42 @@ function openSettings(){
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 }
 $("settings").onclick=openSettings;
-$("dlg-form").onsubmit=()=>{
-  const clean=draft.map(c=>{ const o={prov:c.prov, key:(c.key||"").trim(), model:(c.model||"").trim()}; if(c.prov==="custom") o.base=(c.base||"").trim(); return o; });
+function saveSettings(quiet){
+  const clean=draft.map(c=>{ const o={prov:c.prov, key:(c.key||"").replace(/\s+/g,""), model:(c.model||"").trim()}; if(c.prov==="custom") o.base=(c.base||"").trim(); return o; });
   cfg.chain=clean.filter(c=>c.key); if(!cfg.chain.length) cfg.chain=[clean[0]||{prov:"groq",key:"",model:""}];
   cfg.skills=draftSkills; cfg.memory=memEl.value.trim(); cfg.lessons=lesEl.value.trim();
   cfg.github=$("ghuser").value.trim(); setGh();
   cfg.voice=vVoice.value; cfg.rate=vRate.value; save("brujula-cfg",cfg);
   const n=cfg.chain.filter(c=>c.key).length;
-  say("happy", n ? `¡Listo! Tengo ${n} ${n===1?"clave":"claves"} para pensar. Pregúntame algo.` : "Guardado, pero aún falta una clave.");
-};
+  if(!quiet) say("happy", n ? `¡Listo! Tengo ${n} ${n===1?"clave":"claves"} para pensar. Pregúntame algo.` : "Guardado, pero aún falta una clave.");
+  return n;
+}
+let savedBySubmit=false;
+$("dlg-form").onsubmit=()=>{ savedBySubmit=true; saveSettings(false); };
+// Si sales con el botón de atrás o tocando fuera, también se guarda.
+dlg.addEventListener("close",()=>{ if(!savedBySubmit && draft.length){ const n=saveSettings(true); if(n) say("happy",`Guardé tus ${n===1?"clave":n+" claves"}. Pregúntame algo.`); } savedBySubmit=false; });
 vRate.value=cfg.rate||"1";
 
 welcome();
 setTimeout(()=>{ if(!hasKey()){ say("idle","¡Hola! Soy Rumbo. Antes de empezar, toca ⚙ para poner tu clave gratis.",8000); }
   else say("idle","¡Hola! Soy Rumbo, tu robot guía. Pregúntame lo que sea.",6000); },600);
-if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+const APP_VERSION="17 nov 2026 · 9:15 pm";
+$("ver").textContent="Versión "+APP_VERSION+" · se actualiza sola desde GitHub";
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
+    reg.update().catch(()=>{});
+    document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") reg.update().catch(()=>{}); });
+  }).catch(()=>{});
+}
+// Revisa si hay versión nueva en GitHub y se recarga sola
+async function checkUpdate(){
+  try{ const t=await (await fetch("index.html?v="+Date.now(),{cache:"no-store"})).text();
+    const m=t.match(/APP_VERSION="([^"]+)"/);
+    if(m && m[1]!==APP_VERSION && !busy && !dlg.open){ say("happy","Hay una versión nueva. Me actualizo…",3000); setTimeout(()=>location.reload(),1500); }
+  }catch(e){}
+}
+setTimeout(checkUpdate,4000);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") checkUpdate(); });
 </script>
 </body>
 </html>
