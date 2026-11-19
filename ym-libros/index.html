@@ -152,6 +152,7 @@ ul.notes li{margin:4px 0}
         <div class="mark" aria-hidden="true">YM</div>
         <div><h1>YM Handy Services</h1><div class="sub">Libros del negocio · Katy, TX</div></div>
       </div>
+      <button class="btn primary" id="installBtn" hidden style="padding:6px 12px">Instalar app</button>
       <div class="year"><label for="yearSel" class="small muted">Año fiscal</label><select id="yearSel"></select></div>
     </div>
     <nav class="tabs" aria-label="Secciones">
@@ -172,7 +173,6 @@ ul.notes li{margin:4px 0}
 <input type="file" id="scanInput" accept="image/*,application/pdf" multiple hidden>
 <div id="sheetHost"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 "use strict";
 /* ---------- Catálogos ---------- */
@@ -534,7 +534,10 @@ async function readImage(blob,type,onProg){
 }
 let _worker=null;
 async function ocrText(blob,onProg){
-  if(!window.Tesseract) throw {code:"nolib"};
+  if(!window.Tesseract){
+    await new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";sc.onload=res;sc.onerror=()=>rej({code:"nolib"});document.head.appendChild(sc);}).catch(()=>{});
+    if(!window.Tesseract) throw {code:"nolib"};
+  }
   if(!_worker){
     _worker = await Tesseract.createWorker("eng",1,{logger:m=>{ if(m.status==="recognizing text" && _prog) _prog(m.progress); }});
   }
@@ -843,7 +846,11 @@ const localAssets = {
   }catch(e){ state.noDb=true; state.loaded=true; }
   render();
 })();
-if("serviceWorker" in navigator && location.protocol==="https:"){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+if("serviceWorker" in navigator && location.protocol==="https:"){ navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(()=>{}); }
+let _installEvt=null;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); _installEvt=e; $("#installBtn").hidden=false; });
+window.addEventListener("appinstalled",()=>{ $("#installBtn").hidden=true; toast("App instalada. Búscala en tu pantalla de inicio."); });
+$("#installBtn").addEventListener("click",async()=>{ if(!_installEvt) return; _installEvt.prompt(); try{ await _installEvt.userChoice; }catch(e){} _installEvt=null; $("#installBtn").hidden=true; });
 </script>
 </body>
 </html>

@@ -1,14 +1,17 @@
 {
+  "id": "/ym-libros/",
   "name": "Libros YM Handy Services",
   "short_name": "YM Libros",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Gastos, ingresos y recibos de YM Handy Services para los taxes.",
+  "start_url": "/ym-libros/",
+  "scope": "/ym-libros/",
   "display": "standalone",
   "background_color": "#f2f3f0",
   "theme_color": "#e8a317",
   "lang": "es",
   "icons": [
-    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ]
 }
