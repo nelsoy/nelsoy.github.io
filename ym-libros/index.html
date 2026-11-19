@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Libros YM Handy Services</title>
+<meta name="theme-color" content="#e8a317">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="YM Libros">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Plan: libro contable de taller — gris acero, amarillo cinta métrica como acento, verde ingreso / rojo gasto.
+   Layout: barra superior + pestañas, vista activa en una columna; formulario en hoja deslizante. */
+:root{
+  --bg:#f2f3f0; --surface:#ffffff; --ink:#1b2229; --muted:#5b656e; --line:#dadeda;
+  --accent:#e8a317; --accent-ink:#7a4f00; --on-accent:#1b1606;
+  --income:#1d7a4b; --expense:#b23a2e; --warn-bg:#fff4d6; --warn-ink:#6b4a00;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --surface:#1a1f25; --ink:#e8ebee; --muted:#9aa3ab; --line:#2b323a;
+    --accent:#f0b429; --accent-ink:#f0b429; --on-accent:#1b1606;
+    --income:#4cc38a; --expense:#f0806f; --warn-bg:#3a2f12; --warn-ink:#f5d68a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --surface:#1a1f25; --ink:#e8ebee; --muted:#9aa3ab; --line:#2b323a;
+  --accent:#f0b429; --accent-ink:#f0b429; --on-accent:#1b1606;
+  --income:#4cc38a; --expense:#f0806f; --warn-bg:#3a2f12; --warn-ink:#f5d68a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding-bottom:96px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:.01em}
+h2{font-size:22px}
+h3{font-size:17px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top-in{max-width:1000px;margin:0 auto;padding:12px 16px 0;display:flex;flex-direction:column;gap:10px}
+.brand-row{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:34px;height:34px;border-radius:7px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font:700 16px var(--display)}
+.brand h1{font-size:21px;line-height:1.1}
+.brand .sub{font-size:12px;color:var(--muted)}
+.year{display:flex;align-items:center;gap:6px}
+.year select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{background:none;border:0;padding:8px 12px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;white-space:nowrap}
+nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+main{max-width:1000px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.banner{border-radius:8px;padding:10px 14px;background:var(--warn-bg);color:var(--warn-ink);font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px}
+.tile .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.tile .val{font:700 28px/1.15 var(--display);margin-top:4px}
+.tile .hint{font-size:12px;color:var(--muted);margin-top:2px}
+.inc{color:var(--income)} .exp{color:var(--expense)}
+.row-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+
+.list{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:10px 4px;border:0;border-top:1px solid var(--line);background:none;width:100%;text-align:left;border-radius:0}
+.item:hover{background:var(--bg)}
+.item:first-child{border-top:0}
+.thumb{width:44px;height:44px;border-radius:6px;background:var(--bg);border:1px solid var(--line);object-fit:cover;display:grid;place-items:center;font-size:11px;color:var(--muted);overflow:hidden}
+.item .t{font-weight:600;overflow-wrap:anywhere}
+.item .m{font-size:13px;color:var(--muted)}
+.item .amt{font-weight:600;text-align:right}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:1px}
+.chip.review{background:var(--warn-bg);color:var(--warn-ink);border-color:transparent}
+.chip.half{color:var(--accent-ink);border-color:var(--accent)}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters input,.filters select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);min-width:0}
+.filters input{flex:1 1 180px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-top:0}
+td.r,th.r{text-align:right}
+tfoot td{font-weight:700;border-top:2px solid var(--ink)}
+.scroll-x{overflow-x:auto}
+
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.danger{color:var(--expense)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.dock-in{max-width:1000px;margin:0 auto;display:flex;gap:8px}
+.dock .btn{flex:1;padding:12px;font-size:15px}
+
+.grid-r{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.rc{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);text-align:left;padding:0}
+.rc img{width:100%;height:150px;object-fit:cover;display:block;background:var(--bg)}
+.rc .pdf{height:150px;display:grid;place-items:center;background:var(--bg);color:var(--muted);font-weight:600}
+.rc .cap{padding:8px;font-size:13px}
+
+/* hoja de formulario */
+.sheet-bg{position:fixed;inset:0;background:rgba(10,12,14,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.sheet-bg{align-items:center}.sheet{border-radius:14px}}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form .full{grid-column:1/-1}
+@media (max-width:420px){.form{grid-template-columns:1fr}}
+.f label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.f input,.f select,.f textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.f textarea{min-height:60px;resize:vertical}
+.preview{display:flex;gap:12px;align-items:flex-start}
+.preview img{max-width:130px;max-height:170px;border-radius:7px;border:1px solid var(--line);object-fit:contain;background:var(--bg)}
+.status{font-size:13px;padding:8px 10px;border-radius:7px;background:var(--bg)}
+.status.err{color:var(--expense)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--ink);color:var(--surface);padding:9px 14px;border-radius:8px;z-index:30;font-size:14px;max-width:90%}
+.viewer img{max-width:100%;border-radius:8px}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.empty{padding:22px 8px;text-align:center;color:var(--muted)}
+.note{font-size:13px;color:var(--muted);max-width:70ch}
+ul.notes{margin:8px 0 0;padding-left:18px;font-size:14px;max-width:72ch}
+ul.notes li{margin:4px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand-row">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">YM</div>
+        <div><h1>YM Handy Services</h1><div class="sub">Libros del negocio · Katy, TX</div></div>
+      </div>
+      <div class="year"><label for="yearSel" class="small muted">Año fiscal</label><select id="yearSel"></select></div>
+    </div>
+    <nav class="tabs" aria-label="Secciones">
+      <button data-tab="resumen">Resumen</button>
+      <button data-tab="movimientos">Movimientos</button>
+      <button data-tab="recibos">Recibos</button>
+      <button data-tab="millas">Millas</button>
+      <button data-tab="taxes">Reporte de taxes</button>
+    </nav>
+  </div>
+</header>
+<main id="view"></main>
+<div class="dock"><div class="dock-in">
+  <button class="btn primary" id="scanBtn">📷 Escanear recibo</button>
+  <button class="btn" id="incBtn">+ Ingreso</button>
+  <button class="btn" id="expBtn">+ Gasto</button>
+</div></div>
+<input type="file" id="scanInput" accept="image/*,application/pdf" multiple hidden>
+<div id="sheetHost"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+"use strict";
+/* ---------- Catálogos ---------- */
+const EXP_CATS = [
+  {k:"materiales",n:"Materiales para trabajos",line:"22 · Suministros / materiales",ded:1},
+  {k:"herramientas",n:"Herramientas y equipo",line:"22 o 13 · Herramientas (ver nota)",ded:1},
+  {k:"gasolina",n:"Gasolina",line:"9 · Vehículo",ded:1,veh:true},
+  {k:"vehiculo",n:"Mantenimiento y reparación de vehículo",line:"9 · Vehículo",ded:1,veh:true},
+  {k:"peajes",n:"Peajes y estacionamiento",line:"9 · Vehículo",ded:1},
+  {k:"comidas",n:"Comidas de negocio",line:"24b · Comidas (50%)",ded:0.5},
+  {k:"subcontratistas",n:"Subcontratistas / ayudantes",line:"11 · Mano de obra contratada",ded:1},
+  {k:"renta_equipo",n:"Renta de equipo",line:"20a · Renta de equipo",ded:1},
+  {k:"reparaciones",n:"Reparación de herramientas",line:"21 · Reparaciones",ded:1},
+  {k:"seguro",n:"Seguro del negocio",line:"15 · Seguro",ded:1},
+  {k:"publicidad",n:"Publicidad y marketing",line:"8 · Publicidad",ded:1},
+  {k:"telefono",n:"Teléfono e internet",line:"25 · Servicios",ded:1},
+  {k:"oficina",n:"Oficina y software",line:"18 · Gastos de oficina",ded:1},
+  {k:"profesionales",n:"Contador y servicios legales",line:"17 · Servicios profesionales",ded:1},
+  {k:"licencias",n:"Licencias, permisos e impuestos",line:"23 · Impuestos y licencias",ded:1},
+  {k:"ropa",n:"Ropa de trabajo y equipo de seguridad",line:"27a · Otros gastos",ded:1},
+  {k:"comisiones",n:"Comisiones bancarias y de pago",line:"27a · Otros gastos",ded:1},
+  {k:"otros",n:"Otros gastos del negocio",line:"27a · Otros gastos",ded:1},
+  {k:"personal",n:"Personal (no deducible)",line:"No va en el Schedule C",ded:0},
+];
+const INC_CATS = [
+  {k:"servicio",n:"Trabajo / mano de obra"},
+  {k:"materiales_cobrados",n:"Materiales cobrados al cliente"},
+  {k:"otro_ingreso",n:"Otros ingresos"},
+];
+const PAY = ["Efectivo","Tarjeta de débito","Tarjeta de crédito","Zelle","Cheque","Cash App","Venmo","PayPal","Transferencia","Otro"];
+const MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const RATES = {2025:[["01-01",0.70]],2026:[["01-01",0.725],["07-01",0.76]]};
+const DUE = {2026:["15 abr 2026","15 jun 2026","15 sep 2026","15 ene 2027"],2027:["15 abr 2027","15 jun 2027","15 sep 2027","18 ene 2028"]};
+const catOf = (type,k)=> (type==="income"?INC_CATS:EXP_CATS).find(c=>c.k===k) || {k,n:k||"Sin categoría",line:"27a · Otros gastos",ded:1};
+
+/* ---------- Estado ---------- */
+const state = {
+  db:null, assets:null, sample:null, dl:null, canImg:false,
+  tx:new Map(), settings:{vehicleMethod:"standard",reservePct:25,customRate:0.76,businessUsePct:100},
+  year:new Date().getFullYear(), tab:"resumen", loaded:false, stale:false, noDb:false,
+  filter:{type:"all",cat:"all",q:"",month:"all",review:false}
+};
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+const money = n=>fmt.format(Number(n)||0);
+const short = n=>{n=Number(n)||0;return Math.abs(n)>=1000?"$"+(n/1000).toFixed(n>=10000?0:1)+"k":"$"+Math.round(n);};
+const today = ()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+const fdate = s=>{if(!s)return "";const [y,m,d]=s.split("-");return `${+d} ${MONTHS[+m-1]||""} ${y}`;};
+const BLOBURL = new Map();
+const blobUrl = id=>BLOBURL.get(id)||"";
+function toast(msg,ms=2600){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),ms);}
+
+function rateFor(date){
+  const y=+date.slice(0,4), md=date.slice(5);
+  const tbl=RATES[y]; if(!tbl) return Number(state.settings.customRate)||0;
+  let r=tbl[0][1]; for(const [from,v] of tbl){ if(md>=from) r=v; } return r;
+}
+function dedFactor(tx){
+  if(tx.type!=="expense") return 0;
+  const c=catOf("expense",tx.category);
+  if(c.veh){ return state.settings.vehicleMethod==="standard"?0:(Number(state.settings.businessUsePct)||0)/100; }
+  return c.ded;
+}
+function yearTx(){ const y=String(state.year); return [...state.tx.entries()].map(([id,d])=>({id,...d})).filter(t=>(t.date||"").startsWith(y)).sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.createdAt||0)-(a.createdAt||0)); }
+
+function totals(list){
+  const t={income:0,expense:0,deductible:0,miles:0,mileageDed:0,byCat:{},byIncCat:{},byMonth:Array.from({length:12},()=>({i:0,e:0})),noReceipt:0,review:0};
+  for(const x of list){
+    const amt=Number(x.amount)||0, m=(+x.date.slice(5,7))-1;
+    if(x.review) t.review++;
+    if(x.type==="income"){ t.income+=amt; t.byIncCat[x.category]=(t.byIncCat[x.category]||0)+amt; if(m>=0)t.byMonth[m].i+=amt; }
+    else if(x.type==="expense"){
+      t.expense+=amt; const f=dedFactor(x); t.deductible+=amt*f;
+      const b=t.byCat[x.category]||(t.byCat[x.category]={amt:0,ded:0,n:0}); b.amt+=amt; b.ded+=amt*f; b.n++;
+      if(m>=0 && x.category!=="personal") t.byMonth[m].e+=amt;
+      if(!x.receiptId && x.category!=="personal") t.noReceipt++;
+    } else if(x.type==="miles"){ const mi=Number(x.miles)||0; t.miles+=mi; t.mileageDed+=mi*rateFor(x.date); }
+  }
+  if(state.settings.vehicleMethod!=="standard") t.mileageDed=0;
+  t.totalDed=t.deductible+t.mileageDed;
+  t.net=t.income-t.totalDed;
+  t.seTax=Math.max(0,t.net)*0.9235*0.153;
+  t.reserve=Math.max(0,t.net)*(Number(state.settings.reservePct)||0)/100;
+  return t;
+}
+
+/* ---------- Render ---------- */
+function setTab(tab){ state.tab=tab; if(location.hash!=="#"+tab){ try{history.replaceState(null,"","#"+tab);}catch(e){location.hash=tab;} } render(); }
+function render(){
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===state.tab?"page":"false"));
+  renderYears();
+  const v=$("#view"); const list=yearTx(); const t=totals(list);
+  let html=banners();
+  if(state.tab==="movimientos") html+=viewMov(list);
+  else if(state.tab==="recibos") html+=viewRec(list);
+  else if(state.tab==="millas") html+=viewMiles(list,t);
+  else if(state.tab==="taxes") html+=viewTaxes(list,t);
+  else html+=viewResumen(list,t);
+  v.innerHTML=html;
+  const q=$("#fq"); if(q && state._focusQ){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); state._focusQ=false; }
+}
+function banners(){
+  if(state.noDb) return `<div class="banner">Este navegador no deja guardar datos (puede ser el modo privado). Ábrela en Safari o Chrome normal.</div>`;
+  if(!state.loaded) return `<div class="banner">Cargando tus libros…</div>`;
+  const lb=+(state.settings.lastBackup||0), n=state.tx.size;
+  if(n>=10 && Date.now()-lb>30*864e5) return `<div class="banner">Tus datos viven solo en este teléfono. ${lb?"Tu último respaldo fue hace más de un mes.":"Todavía no has hecho un respaldo."} <button class="btn" style="margin-left:8px;padding:4px 10px" data-act="backup">Hacer respaldo</button></div>`;
+  return "";
+}
+function renderYears(){
+  const sel=$("#yearSel"); const ys=new Set([new Date().getFullYear(),new Date().getFullYear()+1,state.year]);
+  for(const d of state.tx.values()) if(d.date) ys.add(+d.date.slice(0,4));
+  const arr=[...ys].sort((a,b)=>b-a); const cur=arr.join(",");
+  if(sel.dataset.k!==cur){ sel.innerHTML=arr.map(y=>`<option value="${y}">${y}</option>`).join(""); sel.dataset.k=cur; }
+  sel.value=String(state.year);
+}
+
+function itemRow(x){
+  const isInc=x.type==="income", isMi=x.type==="miles";
+  const c=catOf(x.type,x.category);
+  const th = x.receiptId ? (x.receiptType==="application/pdf"?`<div class="thumb">PDF</div>`:`<img class="thumb" alt="" loading="lazy" src="${blobUrl(x.receiptId)}">`) : `<div class="thumb">${isMi?"mi":"—"}</div>`;
+  const title = isMi ? `${esc(x.miles)} millas` : esc(x.vendor||c.n);
+  const meta = isMi ? `${fdate(x.date)} · ${esc(x.purpose||"Viaje de trabajo")}` : `${fdate(x.date)} · ${esc(c.n)}${x.payment?" · "+esc(x.payment):""}`;
+  const chips = (x.review?`<span class="chip review">Por revisar</span>`:"") + (!isInc&&!isMi&&catOf("expense",x.category).ded===0.5?`<span class="chip half">50%</span>`:"");
+  const amt = isMi ? `<span class="muted">${money((+x.miles||0)*rateFor(x.date))}</span>` : `<span class="${isInc?"inc":"exp"}">${isInc?"+":"−"}${money(x.amount)}</span>`;
+  return `<button class="item" data-act="edit" data-id="${esc(x.id)}">${th}<div><div class="t">${title}${chips}</div><div class="m">${meta}</div></div><div class="amt num">${amt}</div></button>`;
+}
+
+function viewResumen(list,t){
+  const recent=list.filter(x=>x.type!=="miles").slice(0,8);
+  const rev=list.filter(x=>x.review).length;
+  return `
+  <section class="tiles" aria-label="Totales del año">
+    <div class="tile"><div class="lbl">Ingresos ${state.year}</div><div class="val inc num">${money(t.income)}</div><div class="hint">Línea 1 · ingresos brutos</div></div>
+    <div class="tile"><div class="lbl">Gastos deducibles</div><div class="val exp num">${money(t.totalDed)}</div><div class="hint">${state.settings.vehicleMethod==="standard"?"Incluye "+money(t.mileageDed)+" de millaje":"Gastos reales de vehículo"}</div></div>
+    <div class="tile"><div class="lbl">Ganancia neta</div><div class="val num">${money(t.net)}</div><div class="hint">Línea 31 · estimado</div></div>
+    <div class="tile"><div class="lbl">Apartar para taxes</div><div class="val num" style="color:var(--accent-ink)">${money(t.reserve)}</div><div class="hint">${state.settings.reservePct}% de la ganancia · self-employment ≈ ${money(t.seTax)}</div></div>
+  </section>
+  ${rev?`<div class="banner">Tienes ${rev} movimiento${rev>1?"s":""} escaneado${rev>1?"s":""} por revisar. <button class="btn" style="margin-left:8px;padding:4px 10px" data-act="goreview">Revisar ahora</button></div>`:""}
+  <section class="card chart">
+    <div class="row-h"><h2>Mes a mes</h2><div class="legend"><span><i style="background:var(--income)"></i>Ingresos</span><span><i style="background:var(--expense)"></i>Gastos</span></div></div>
+    ${chartSvg(t.byMonth)}
+  </section>
+  <section class="card">
+    <div class="row-h"><h2>Últimos movimientos</h2><button class="btn" data-act="tab" data-tab="movimientos">Ver todos</button></div>
+    ${recent.length?`<div class="list">${recent.map(itemRow).join("")}</div>`:`<div class="empty">Todavía no hay movimientos en ${state.year}. Toca <b>Escanear recibo</b> para subir tu primera compra, o <b>+ Ingreso</b> para anotar un pago de un cliente.</div>`}
+  </section>
+  ${t.noReceipt?`<p class="note">${t.noReceipt} gasto${t.noReceipt>1?"s":""} de este año no tiene${t.noReceipt>1?"n":""} foto del recibo. Ábrelo${t.noReceipt>1?"s":""} y adjunta la foto para tener respaldo si el IRS pregunta.</p>`:""}`;
+}
+
+function chartSvg(byMonth){
+  const W=640,H=230,pl=44,pr=8,pt=10,pb=26; const iw=W-pl-pr, ih=H-pt-pb;
+  let max=Math.max(1,...byMonth.map(m=>Math.max(m.i,m.e)));
+  const step=Math.pow(10,Math.floor(Math.log10(max))); max=Math.ceil(max/step)*step; if(max/step<4) max=Math.ceil(max/(step/2))*(step/2);
+  const gw=iw/12, bw=Math.min(16,gw*0.32);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ingresos y gastos por mes">`;
+  for(let k=0;k<=4;k++){const v=max*k/4,y=pt+ih-ih*k/4; s+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${short(v)}</text>`;}
+  byMonth.forEach((m,i)=>{
+    const x=pl+gw*i+gw/2; const hi=ih*m.i/max, he=ih*m.e/max;
+    if(m.i>0) s+=`<rect x="${x-bw-1}" y="${pt+ih-hi}" width="${bw}" height="${hi}" rx="2" fill="var(--income)"><title>${MONTHS[i]}: ingresos ${money(m.i)}</title></rect>`;
+    if(m.e>0) s+=`<rect x="${x+1}" y="${pt+ih-he}" width="${bw}" height="${he}" rx="2" fill="var(--expense)"><title>${MONTHS[i]}: gastos ${money(m.e)}</title></rect>`;
+    s+=`<text x="${x}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${MONTHS[i]}</text>`;
+  });
+  return s+`</svg>`;
+}
+
+function filtered(list){
+  const f=state.filter, q=f.q.trim().toLowerCase();
+  return list.filter(x=>x.type!=="miles")
+    .filter(x=>f.type==="all"||x.type===f.type)
+    .filter(x=>f.cat==="all"||x.category===f.cat)
+    .filter(x=>f.month==="all"||x.date.slice(5,7)===f.month)
+    .filter(x=>!f.review||x.review)
+    .filter(x=>!q||[x.vendor,x.description,x.job,x.payment,x.invoice,catOf(x.type,x.category).n].join(" ").toLowerCase().includes(q));
+}
+function viewMov(list){
+  const f=state.filter; const rows=filtered(list);
+  let inc=0,exp=0; rows.forEach(x=>x.type==="income"?inc+=+x.amount||0:exp+=+x.amount||0);
+  const cats = f.type==="income"?INC_CATS:f.type==="expense"?EXP_CATS:[...INC_CATS,...EXP_CATS];
+  return `<section class="card">
+    <div class="row-h"><h2>Movimientos ${state.year}</h2><span class="small muted num">${rows.length} · <span class="inc">+${money(inc)}</span> · <span class="exp">−${money(exp)}</span></span></div>
+    <div class="filters" style="margin-bottom:12px">
+      <div class="seg" role="group" aria-label="Tipo">
+        ${[["all","Todo"],["expense","Gastos"],["income","Ingresos"]].map(([k,n])=>`<button data-act="ftype" data-v="${k}" aria-pressed="${f.type===k}">${n}</button>`).join("")}
+      </div>
+      <input id="fq" type="search" placeholder="Buscar tienda, cliente, nota…" value="${esc(f.q)}" aria-label="Buscar">
+      <select id="fcat" aria-label="Categoría"><option value="all">Todas las categorías</option>${cats.map(c=>`<option value="${c.k}" ${f.cat===c.k?"selected":""}>${esc(c.n)}</option>`).join("")}</select>
+      <select id="fmonth" aria-label="Mes"><option value="all">Todo el año</option>${MONTHS.map((m,i)=>{const v=String(i+1).padStart(2,"0");return `<option value="${v}" ${f.month===v?"selected":""}>${m}</option>`;}).join("")}</select>
+      <label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="frev" ${f.review?"checked":""}> Solo por revisar</label>
+    </div>
+    ${rows.length?`<div class="list">${rows.map(itemRow).join("")}</div>`:`<div class="empty">No hay movimientos con estos filtros.</div>`}
+  </section>`;
+}
+function viewRec(list){
+  const rows=list.filter(x=>x.receiptId);
+  return `<section class="card"><div class="row-h"><h2>Recibos ${state.year}</h2><span class="small muted">${rows.length} guardados</span></div>
+  ${rows.length?`<div class="grid-r">${rows.map(x=>`<button class="rc" data-act="edit" data-id="${esc(x.id)}">${x.receiptType==="application/pdf"?`<div class="pdf">PDF</div>`:`<img alt="Recibo de ${esc(x.vendor||"")}" loading="lazy" src="${blobUrl(x.receiptId)}">`}<div class="cap"><b>${esc(x.vendor||catOf(x.type,x.category).n)}</b><br><span class="muted num">${fdate(x.date)} · ${money(x.amount)}</span></div></button>`).join("")}</div>`:`<div class="empty">Aquí aparecen las fotos de tus recibos. Toca <b>Escanear recibo</b> para empezar.</div>`}
+  </section>`;
+}
+function viewMiles(list,t){
+  const rows=list.filter(x=>x.type==="miles");
+  const y=state.year, tbl=RATES[y];
+  const rateTxt = tbl ? tbl.map(([f,v],i)=>`${(v*100).toFixed(1)}¢ por milla desde ${fdate(y+"-"+f)}`).join(" · ") : `Tarifa que usas: ${(state.settings.customRate*100).toFixed(1)}¢ por milla (cámbiala en Reporte de taxes cuando el IRS anuncie la de ${y})`;
+  return `<section class="card">
+    <div class="row-h"><h2>Millas de negocio ${y}</h2><span class="num"><b>${t.miles.toLocaleString("en-US")}</b> mi · <b>${money(state.settings.vehicleMethod==="standard"?t.mileageDed:0)}</b></span></div>
+    <p class="note">${rateTxt}. Si ya llevas tu Bitácora de Millas aparte, puedes anotar aquí el total de cada mes en una sola línea.</p>
+    ${state.settings.vehicleMethod!=="standard"?`<div class="banner" style="margin:10px 0">Estás usando gastos reales del vehículo, así que el millaje no se suma como deducción. Igual sirve como prueba del % de uso de negocio.</div>`:""}
+    <form id="mileForm" class="form" style="margin:12px 0">
+      <div class="f"><label for="mDate">Fecha</label><input id="mDate" type="date" required value="${today().startsWith(String(y))?today():y+"-01-01"}"></div>
+      <div class="f"><label for="mMiles">Millas</label><input id="mMiles" type="number" min="0" step="0.1" inputmode="decimal" required placeholder="0"></div>
+      <div class="f full"><label for="mPurpose">Motivo o cliente</label><input id="mPurpose" type="text" placeholder="Ej. Reparación de cerca, cliente en Cinco Ranch"></div>
+      <div class="full"><button class="btn primary" type="submit" ${state.noDb?"disabled":""}>Guardar millas</button></div>
+    </form>
+    ${rows.length?`<div class="list">${rows.map(itemRow).join("")}</div>`:`<div class="empty">Sin millas registradas en ${y}.</div>`}
+  </section>`;
+}
+
+function viewTaxes(list,t){
+  const y=state.year, s=state.settings;
+  const lines={};
+  for(const c of EXP_CATS){ const b=t.byCat[c.k]; if(!b||c.k==="personal") continue;
+    const key=c.line; (lines[key]=lines[key]||{line:key,amt:0,ded:0,cats:[]}); lines[key].amt+=b.amt; lines[key].ded+=b.ded; lines[key].cats.push(c.n); }
+  if(t.mileageDed>0){ const key="9 · Vehículo"; (lines[key]=lines[key]||{line:key,amt:0,ded:0,cats:[]}); lines[key].ded+=t.mileageDed; lines[key].cats.push(`Millaje: ${t.miles.toLocaleString("en-US")} mi`); }
+  const lineRows=Object.values(lines).sort((a,b)=>parseFloat(a.line)-parseFloat(b.line));
+  const pers=t.byCat.personal?.amt||0;
+  const threshold = y>=2026?2000:600;
+  const subs={}; list.filter(x=>x.type==="expense"&&x.category==="subcontratistas").forEach(x=>{const k=(x.vendor||"Sin nombre").trim(); const o=subs[k]||(subs[k]={tot:0,app:0}); o.tot+=+x.amount||0; if(/tarjeta|paypal|venmo|cash app/i.test(x.payment||"")) o.app+=+x.amount||0;});
+  const need1099=Object.entries(subs).filter(([k,o])=>o.tot-o.app>=threshold);
+  const bigTools=list.filter(x=>x.type==="expense"&&x.category==="herramientas"&&(+x.amount||0)>=2500);
+  const appInc=list.filter(x=>x.type==="income"&&/tarjeta|zelle|cash app|venmo|paypal/i.test(x.payment||"")).reduce((a,x)=>a+(+x.amount||0),0);
+  const due=DUE[y];
+  return `
+  <section class="tiles">
+    <div class="tile"><div class="lbl">Ingresos brutos</div><div class="val inc num">${money(t.income)}</div><div class="hint">Schedule C · línea 1</div></div>
+    <div class="tile"><div class="lbl">Total deducciones</div><div class="val exp num">${money(t.totalDed)}</div><div class="hint">Líneas 8–27 + millaje</div></div>
+    <div class="tile"><div class="lbl">Ganancia neta</div><div class="val num">${money(t.net)}</div><div class="hint">Línea 31</div></div>
+    <div class="tile"><div class="lbl">Self-employment tax</div><div class="val num">${money(t.seTax)}</div><div class="hint">≈ 15.3% sobre 92.35% de la ganancia</div></div>
+  </section>
+  <section class="card">
+    <div class="row-h"><h2>Gastos por línea del Schedule C · ${y}</h2>
+      <div class="btn-row"><button class="btn" data-act="csv">Exportar CSV para el contador</button><button class="btn" data-act="copysum">Copiar resumen</button></div></div>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Línea</th><th>Incluye</th><th class="r">Pagado</th><th class="r">Deducible</th></tr></thead>
+      <tbody>${lineRows.length?lineRows.map(r=>`<tr><td><b>${esc(r.line)}</b></td><td class="muted">${esc(r.cats.join(", "))}</td><td class="r num">${r.amt?money(r.amt):"—"}</td><td class="r num">${money(r.ded)}</td></tr>`).join(""):`<tr><td colspan="4" class="muted">Sin gastos en ${y}.</td></tr>`}</tbody>
+      <tfoot><tr><td colspan="3">Total deducible</td><td class="r num">${money(t.totalDed)}</td></tr></tfoot>
+    </table></div>
+    ${pers?`<p class="note" style="margin-top:8px">También marcaste ${money(pers)} como personal; no cuenta para el negocio.</p>`:""}
+  </section>
+  <section class="card">
+    <h3>Ingresos por tipo</h3>
+    <div class="scroll-x"><table><tbody>${INC_CATS.map(c=>`<tr><td>${c.n}</td><td class="r num">${money(t.byIncCat[c.k]||0)}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td>Total línea 1</td><td class="r num">${money(t.income)}</td></tr></tfoot></table></div>
+    ${appInc?`<p class="note" style="margin-top:8px">${money(appInc)} entró por tarjeta o apps (Zelle, Cash App, Venmo, PayPal). Si te llega un 1099-K, compáralo con este registro.</p>`:""}
+  </section>
+  <section class="card">
+    <h3>Para revisar con tu contador</h3>
+    <ul class="notes">
+      ${need1099.length?`<li><b>1099-NEC:</b> le pagaste ${threshold.toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0})} o más (en efectivo, cheque o Zelle) a: ${need1099.map(([k,o])=>`${esc(k)} (${money(o.tot-o.app)})`).join(", ")}. Pídeles el W-9 y envíales el 1099-NEC en enero.</li>`:`<li><b>1099-NEC:</b> ningún subcontratista llega a ${threshold.toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0})} este año (los pagos con tarjeta o PayPal no cuentan).</li>`}
+      ${bigTools.length?`<li><b>Herramientas grandes:</b> ${bigTools.map(x=>`${esc(x.vendor||"")} ${money(x.amount)} (${fdate(x.date)})`).join("; ")}. Cada artículo de $2,500 o más normalmente va por depreciación o Sección 179 (línea 13) en vez de gasto directo.</li>`:`<li><b>Herramientas:</b> las de menos de $2,500 por artículo normalmente se pueden deducir completas como gasto.</li>`}
+      <li><b>Vehículo:</b> ${s.vehicleMethod==="standard"?"usas millaje estándar, así que la gasolina y las reparaciones del vehículo no se suman (sí los peajes y el estacionamiento). Igual guarda esos recibos.":`usas gastos reales al ${s.businessUsePct}% de uso de negocio; el millaje no se suma.`}</li>
+      <li><b>Comidas:</b> solo se deduce el 50%, y deben ser de negocio (con cliente o viaje de trabajo fuera de tu zona).</li>
+      ${due?`<li><b>Pagos estimados ${y}:</b> ${due.join(" · ")}. Cada pago ≈ ${money(t.reserve/4)} si apartas el ${s.reservePct}%.</li>`:""}
+    </ul>
+    <p class="note" style="margin-top:10px">Estos números son estimados para organizarte; no reemplazan a tu preparador de taxes.</p>
+  </section>
+  <section class="card">
+    <h3>Ajustes</h3>
+    <form id="setForm" class="form" style="margin-top:10px">
+      <div class="f"><label for="sVeh">Método para el vehículo</label><select id="sVeh"><option value="standard" ${s.vehicleMethod==="standard"?"selected":""}>Millaje estándar del IRS</option><option value="actual" ${s.vehicleMethod==="actual"?"selected":""}>Gastos reales (gasolina, reparaciones)</option></select></div>
+      <div class="f"><label for="sBiz">% de uso de negocio del vehículo (gastos reales)</label><input id="sBiz" type="number" min="0" max="100" value="${esc(s.businessUsePct)}"></div>
+      <div class="f"><label for="sRes">% a apartar para taxes</label><input id="sRes" type="number" min="0" max="60" value="${esc(s.reservePct)}"></div>
+      <div class="f"><label for="sRate">Tarifa por milla para años sin tarifa cargada ($)</label><input id="sRate" type="number" min="0" step="0.005" value="${esc(s.customRate)}"></div>
+      <div class="full"><button class="btn primary" type="submit" ${state.noDb?"disabled":""}>Guardar ajustes</button></div>
+    </form>
+  </section>
+  <section class="card">
+    <h3>Respaldo</h3>
+    <p class="note" style="margin:6px 0 10px">Todo se guarda solo en este teléfono. Haz un respaldo cada mes y guárdalo en Google Drive, iCloud o mándatelo por correo. Si cambias de teléfono, abre la app en el nuevo y toca Restaurar.</p>
+    <div class="btn-row"><button class="btn primary" data-act="backup">Hacer respaldo</button><label class="btn" for="restoreInput">Restaurar respaldo</label><input type="file" id="restoreInput" accept="application/json,.json" hidden></div>
+    <p class="note small" style="margin-top:8px">${state.settings.lastBackup?"Último respaldo: "+new Date(+state.settings.lastBackup).toLocaleDateString("es-US"):"Todavía no has hecho un respaldo."}</p>
+  </section>`;
+}
+
+/* ---------- Formulario (hoja) ---------- */
+let form=null; // {id,type,file,preview,receiptId,receiptType,busy}
+function openForm(opts={}){
+  const existing = opts.id ? {...state.tx.get(opts.id)} : {};
+  const type = opts.type || existing.type || "expense";
+  if(type==="miles"){ openMilesEdit(opts.id,existing); return; }
+  form = {id:opts.id||null,type,file:null,preview:null,receiptId:existing.receiptId||null,receiptType:existing.receiptType||null,busy:false};
+  const d = {date:today(),amount:"",vendor:"",category:type==="income"?"servicio":"materiales",payment:"",description:"",job:"",invoice:"",tax:"",...existing};
+  $("#sheetHost").innerHTML = `<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="row-h"><h2 id="sheetTitle">${opts.id?"Editar":"Nuevo"} ${type==="income"?"ingreso":"gasto"}</h2><button class="btn" data-act="close" aria-label="Cerrar">✕</button></div>
+    <div class="seg" role="group" aria-label="Tipo" style="margin-bottom:12px">
+      <button type="button" data-act="settype" data-v="expense" aria-pressed="${type==="expense"}">Gasto</button>
+      <button type="button" data-act="settype" data-v="income" aria-pressed="${type==="income"}">Ingreso</button>
+    </div>
+    <div class="preview" id="pv" style="margin-bottom:12px"></div>
+    <div id="ocrStatus"></div>
+    <form id="txForm" class="form">
+      <div class="f"><label for="fDate">Fecha</label><input id="fDate" type="date" required value="${esc(d.date)}"></div>
+      <div class="f"><label for="fAmt">Monto total ($)</label><input id="fAmt" type="number" step="0.01" min="0" inputmode="decimal" required value="${esc(d.amount)}"></div>
+      <div class="f full"><label for="fVendor">${type==="income"?"Cliente":"Tienda o proveedor"}</label><input id="fVendor" type="text" autocomplete="off" value="${esc(d.vendor)}" placeholder="${type==="income"?"Ej. Sra. García":"Ej. Home Depot"}"></div>
+      <div class="f"><label for="fCat">Categoría</label><select id="fCat">${(type==="income"?INC_CATS:EXP_CATS).map(c=>`<option value="${c.k}" ${d.category===c.k?"selected":""}>${esc(c.n)}</option>`).join("")}</select></div>
+      <div class="f"><label for="fPay">${type==="income"?"Cómo te pagaron":"Cómo pagaste"}</label><select id="fPay"><option value="">—</option>${PAY.map(p=>`<option ${d.payment===p?"selected":""}>${p}</option>`).join("")}</select></div>
+      <div class="f"><label for="fJob">Trabajo / dirección (opcional)</label><input id="fJob" type="text" value="${esc(d.job)}" placeholder="Ej. Baño, 123 Mason Rd"></div>
+      ${type==="income"?`<div class="f"><label for="fInv"># de factura (opcional)</label><input id="fInv" type="text" value="${esc(d.invoice)}"></div>`:`<div class="f"><label for="fTax">Sales tax incluido ($)</label><input id="fTax" type="number" step="0.01" min="0" value="${esc(d.tax??"")}"></div>`}
+      <div class="f full"><label for="fDesc">Descripción</label><textarea id="fDesc" placeholder="Qué compraste o qué trabajo hiciste">${esc(d.description)}</textarea></div>
+      <div class="full" id="dupWarn"></div>
+      <div class="full btn-row">
+        <button class="btn primary" type="submit" id="saveBtn" ${state.noDb?"disabled":""}>Guardar</button>
+        <label class="btn" for="attachInput" style="display:inline-flex;align-items:center">${form.receiptId?"Cambiar foto":"Adjuntar foto o PDF"}</label>
+        <input type="file" id="attachInput" accept="image/*,application/pdf" hidden>
+        ${opts.id?`<button class="btn danger" type="button" data-act="askdel">Eliminar</button>`:""}
+      </div>
+      <div class="full" id="delConfirm"></div>
+    </form>
+  </div></div>`;
+  renderPreview();
+  if(opts.file) attachFile(opts.file, true);
+  $("#fDate").addEventListener("change",checkDup); $("#fAmt").addEventListener("input",checkDup);
+}
+function renderPreview(){
+  const pv=$("#pv"); if(!pv||!form) return;
+  let img="";
+  if(form.preview) img=`<img alt="Foto del recibo" src="${form.preview}">`;
+  else if(form.file && form.file.type==="application/pdf") img=`<div class="thumb" style="width:90px;height:110px">PDF</div>`;
+  else if(form.receiptId) img = form.receiptType==="application/pdf" ? `<a class="btn" href="${blobUrl(form.receiptId)}" target="_blank" rel="noopener">Ver PDF</a>` : `<a href="${blobUrl(form.receiptId)}" target="_blank" rel="noopener"><img alt="Foto del recibo" src="${blobUrl(form.receiptId)}"></a>`;
+  const canRead = state.sample && state.canImg && (form.file?.type?.startsWith("image/"));
+  pv.innerHTML = img ? `${img}<div class="small muted" style="display:flex;flex-direction:column;gap:8px">${form.file?"Foto lista; se guarda al tocar Guardar.":"Recibo guardado."}${canRead?`<button class="btn" type="button" data-act="ocr">Leer recibo otra vez</button>`:""}</div>` : "";
+}
+async function attachFile(file, autoRead){
+  const small = await compress(file);
+  form.file = small;
+  if(form.preview) URL.revokeObjectURL(form.preview);
+  form.preview = small.type.startsWith("image/") ? URL.createObjectURL(small) : null;
+  renderPreview();
+  if(autoRead){
+    if(state.sample && state.canImg && small.type.startsWith("image/")) runOCR();
+    else if(small.type==="application/pdf") setStatus("El PDF se guarda como respaldo; llena los datos a mano.");
+    else if(!state.sample || !state.canImg) setStatus("No se pudo leer la foto automáticamente; llena los datos a mano.");
+  }
+}
+function setStatus(msg,err){ const s=$("#ocrStatus"); if(s) s.innerHTML = msg?`<div class="status ${err?"err":""}" style="margin-bottom:12px">${esc(msg)}</div>`:""; }
+async function compress(file){
+  if(!file.type || !file.type.startsWith("image/")) return file;
+  try{
+    const bmp = await createImageBitmap(file,{imageOrientation:"from-image"});
+    const max=1800, sc=Math.min(1,max/Math.max(bmp.width,bmp.height));
+    const c=document.createElement("canvas"); c.width=Math.round(bmp.width*sc); c.height=Math.round(bmp.height*sc);
+    c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); bmp.close&&bmp.close();
+    const b = await new Promise(r=>c.toBlob(x=>r(x),"image/jpeg",0.82));
+    return b||file;
+  }catch(e){ return file; }
+}
+async function readImage(blob,type,onProg){
+  const text = await ocrText(blob,onProg);
+  return parseReceipt(text,type);
+}
+let _worker=null;
+async function ocrText(blob,onProg){
+  if(!window.Tesseract) throw {code:"nolib"};
+  if(!_worker){
+    _worker = await Tesseract.createWorker("eng",1,{logger:m=>{ if(m.status==="recognizing text" && _prog) _prog(m.progress); }});
+  }
+  _prog=onProg||null;
+  const {data} = await _worker.recognize(blob);
+  _prog=null;
+  return data.text||"";
+}
+let _prog=null;
+const STORES=[
+  [/home\s*depot/i,"The Home Depot","materiales"],[/lowe'?s/i,"Lowe's","materiales"],[/menards/i,"Menards","materiales"],
+  [/harbor\s*freight/i,"Harbor Freight","herramientas"],[/ace\s*hardware/i,"Ace Hardware","materiales"],[/sherwin/i,"Sherwin-Williams","materiales"],
+  [/floor\s*&?\s*decor/i,"Floor & Decor","materiales"],[/ferguson/i,"Ferguson","materiales"],[/builders\s*first/i,"Builders FirstSource","materiales"],
+  [/sunbelt/i,"Sunbelt Rentals","renta_equipo"],[/united\s*rentals/i,"United Rentals","renta_equipo"],
+  [/buc-?ee/i,"Buc-ee's","gasolina"],[/shell/i,"Shell","gasolina"],[/exxon/i,"Exxon","gasolina"],[/chevron/i,"Chevron","gasolina"],[/valero/i,"Valero","gasolina"],
+  [/quik\s*trip|\bqt\b/i,"QuikTrip","gasolina"],[/murphy/i,"Murphy USA","gasolina"],[/racetrac/i,"RaceTrac","gasolina"],[/conoco|phillips\s*66/i,"Phillips 66","gasolina"],[/circle\s*k/i,"Circle K","gasolina"],[/7-?eleven/i,"7-Eleven","gasolina"],
+  [/autozone/i,"AutoZone","vehiculo"],[/o'?reilly/i,"O'Reilly Auto Parts","vehiculo"],[/advance\s*auto/i,"Advance Auto Parts","vehiculo"],[/discount\s*tire/i,"Discount Tire","vehiculo"],[/jiffy|valvoline|take\s*5/i,"Cambio de aceite","vehiculo"],
+  [/h-?e-?b\b/i,"H-E-B","otros"],[/walmart/i,"Walmart","otros"],[/costco/i,"Costco","otros"],[/sam'?s\s*club/i,"Sam's Club","otros"],[/target/i,"Target","otros"],[/amazon/i,"Amazon","otros"],
+  [/mcdonald|whataburger|chick-?fil|taco\s*bell|wendy|burger\s*king|subway|popeyes|sonic|jack\s*in|taqueria|restaurant|pizza|starbucks|dunkin|kolache|grill|cafe/i,null,"comidas"],
+  [/ez\s*tag|toll|parking|park\b/i,null,"peajes"],
+  [/t-?mobile|verizon|at&t|comcast|xfinity|spectrum/i,null,"telefono"],
+  [/state\s*farm|progressive|geico|allstate|insurance/i,null,"seguro"],
+];
+function parseReceipt(text,type){
+  const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const amt=l=>{const m=[...l.replace(/,/g,"").matchAll(/\$?\s?(\d{1,6}\.\d{2})\b/g)].map(x=>+x[1]);return m;};
+  let total=null, tax=null;
+  for(let i=lines.length-1;i>=0;i--){ const l=lines[i];
+    if(/total/i.test(l) && !/sub\s*-?total|total\s*(savings|saved|items|qty|discount)/i.test(l)){ const a=amt(l).concat(amt(lines[i+1]||"")); if(a.length){ total=a[0]; break; } } }
+  if(total==null){ for(const l of lines){ if(/amount|balance|due|charged|visa|mastercard|debit|cash/i.test(l)){ const a=amt(l); if(a.length){ total=Math.max(total||0,...a); } } } }
+  if(total==null){ const all=lines.flatMap(amt); if(all.length) total=Math.max(...all); }
+  for(const l of lines){ if(/\btax\b/i.test(l) && !/total/i.test(l)){ const a=amt(l); if(a.length){ tax=a[a.length-1]; break; } } }
+  let date=null;
+  for(const l of lines){ let m=l.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/);
+    if(m){ let [_,mo,d,y]=m; y=y.length===2?"20"+y:y; mo=+mo; d=+d; if(mo>=1&&mo<=12&&d>=1&&d<=31&&+y>=2020&&+y<=2035){ date=`${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`; break; } }
+    m=l.match(/\b(\d{4})-(\d{2})-(\d{2})\b/); if(m){ date=m[0]; break; } }
+  let vendor=null, category=type==="income"?"servicio":"otros";
+  const joined=lines.slice(0,12).join(" ")+" "+text;
+  if(type==="expense"){ for(const [re,name,cat] of STORES){ if(re.test(joined)){ vendor=name; category=cat; break; } } }
+  if(!vendor){ vendor=(lines.find(l=>/[a-z]{3,}/i.test(l) && !/receipt|welcome|thank|store\s*#|^\d/i.test(l))||"").replace(/[^\w&'.\- ]/g,"").slice(0,40)||null; }
+  if(category==="gasolina" && !/gal|fuel|unleaded|diesel|pump|regular|premium/i.test(text)) category="comidas";
+  let payment=null;
+  if(/debit/i.test(text)) payment="Tarjeta de débito"; else if(/visa|mastercard|amex|discover|credit/i.test(text)) payment="Tarjeta de crédito"; else if(/\bcash\b|change\s*due/i.test(text)) payment="Efectivo";
+  if(type==="income"){ if(/zelle/i.test(text)) payment="Zelle"; else if(/cash\s*app|\$cashtag/i.test(text)) payment="Cash App"; else if(/venmo/i.test(text)) payment="Venmo"; else if(/pay\s*to\s*the\s*order|check/i.test(text)) payment="Cheque"; }
+  const items=lines.filter(l=>amt(l).length && !/total|tax|change|debit|credit|visa|master|cash|balance|amount|due|savings|card|auth/i.test(l)).map(l=>l.replace(/\$?\s?\d{1,6}\.\d{2}.*$/,"").replace(/^[\d\s@xX]+(?=[A-Za-z])/,"").trim()).filter(l=>/[a-z]{3,}/i.test(l)).slice(0,4);
+  const description = items.length? items.map(t=>t.charAt(0)+t.slice(1).toLowerCase()).join(", ").slice(0,120) : "";
+  const conf = (total!=null && date && vendor)?"alta":(total!=null?"media":"baja");
+  return {vendor,date,total,tax,payment,category,description,confidence:conf};
+}
+async function runOCR(){
+  if(!form?.file || form.busy) return;
+  const type=form.type; form.busy=true;
+  setStatus("Leyendo el recibo… la primera vez tarda más porque descarga el lector.");
+  try{
+    const r = await readImage(form.file,type,p=>setStatus("Leyendo el recibo… "+Math.round(p*100)+"%"));
+    if(!form || form.type!==type) return;
+    if(r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) $("#fDate").value=r.date;
+    if(r.total!=null && !isNaN(+r.total)) $("#fAmt").value=(+r.total).toFixed(2);
+    if(r.vendor) $("#fVendor").value=String(r.vendor).slice(0,80);
+    const cats=(type==="income"?INC_CATS:EXP_CATS).map(c=>c.k); if(cats.includes(r.category)) $("#fCat").value=r.category;
+    if(PAY.includes(r.payment)) $("#fPay").value=r.payment;
+    if(r.description) $("#fDesc").value=String(r.description).slice(0,200);
+    if(type==="expense" && r.tax!=null && !isNaN(+r.tax) && $("#fTax")) $("#fTax").value=(+r.tax).toFixed(2);
+    setStatus(r.confidence==="alta"?"Listo. Revisa los datos y toca Guardar.":"Leí lo que pude; revisa y completa los datos antes de guardar.");
+    checkDup();
+  }catch(e){ setStatus(e?.code==="nolib"?"El lector de recibos necesita internet la primera vez. Conéctate y toca Leer recibo otra vez, o llena los datos a mano.":"No pude leer el recibo. Llena los datos a mano.",true); }
+  finally{ if(form) form.busy=false; }
+}
+function checkDup(){
+  const w=$("#dupWarn"); if(!w||!form) return;
+  const date=$("#fDate").value, amt=+$("#fAmt").value;
+  const dup=[...state.tx.entries()].find(([id,x])=>id!==form.id && x.type===form.type && x.date===date && Math.abs((+x.amount||0)-amt)<0.005 && amt>0);
+  w.innerHTML = dup ? `<div class="banner">Ya tienes un ${form.type==="income"?"ingreso":"gasto"} de ${money(amt)} el ${fdate(date)} (${esc(dup[1].vendor||"")}). ¿Es el mismo recibo?</div>` : "";
+}
+async function uploadReceipt(blob){
+  if(!state.assets) throw new Error("noassets");
+  const a = await state.assets.upload(blob);
+  return {receiptId:a.id, receiptType:a.contentType||blob.type};
+}
+async function saveForm(ev){
+  ev.preventDefault(); if(!form||!state.db) return;
+  const btn=$("#saveBtn"); btn.disabled=true; btn.textContent="Guardando…";
+  try{
+    const amt=+$("#fAmt").value;
+    const obj={
+      type:form.type, date:$("#fDate").value, amount:Math.round(amt*100)/100,
+      vendor:$("#fVendor").value.trim(), category:$("#fCat").value, payment:$("#fPay").value,
+      job:$("#fJob").value.trim(), description:$("#fDesc").value.trim(), review:false,
+      updatedAt:Date.now()
+    };
+    if(form.type==="income") obj.invoice=($("#fInv")?.value||"").trim(); else { const tx=$("#fTax")?.value; obj.tax = tx===""||tx==null?null:+tx; }
+    const old = form.id ? state.tx.get(form.id) : null;
+    obj.createdAt = old?.createdAt || Date.now();
+    if(form.file){
+      try{ Object.assign(obj, await uploadReceipt(form.file)); }
+      catch(e){ toast("No se pudo subir la foto; el movimiento se guardó sin ella."); if(form.receiptId){obj.receiptId=form.receiptId;obj.receiptType=form.receiptType;} }
+    } else if(form.receiptId){ obj.receiptId=form.receiptId; obj.receiptType=form.receiptType; }
+    const id = form.id || state.db.collection("tx").doc().id;
+    await state.db.doc("tx/"+id).set(obj);
+    if(old?.receiptId && obj.receiptId!==old.receiptId && state.assets){ state.assets.delete(old.receiptId).catch(()=>{}); }
+    closeSheet(); toast(form0Type(obj)+" guardado");
+  }catch(e){
+    btn.disabled=false; btn.textContent="Guardar";
+    toast(e?.code==="quota_exceeded"?"Se llenó el espacio de la base de datos.":"No se pudo guardar. Revisa tu conexión e intenta otra vez.",3500);
+  }
+}
+const form0Type = o=>o.type==="income"?"Ingreso":o.type==="miles"?"Millas":"Gasto";
+function closeSheet(){ if(form?.preview) URL.revokeObjectURL(form.preview); form=null; $("#sheetHost").innerHTML=""; }
+async function deleteTx(id){
+  const x=state.tx.get(id); if(!x||!state.db) return;
+  try{ await state.db.doc("tx/"+id).delete(); if(x.receiptId && state.assets) state.assets.delete(x.receiptId).catch(()=>{}); closeSheet(); toast("Eliminado"); }
+  catch(e){ toast("No se pudo eliminar. Intenta otra vez."); }
+}
+function openMilesEdit(id,x){
+  form={id,type:"miles"};
+  $("#sheetHost").innerHTML=`<div class="sheet-bg" id="sheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="row-h"><h2 id="sheetTitle">Editar millas</h2><button class="btn" data-act="close" aria-label="Cerrar">✕</button></div>
+    <form id="mileEdit" class="form">
+      <div class="f"><label for="eDate">Fecha</label><input id="eDate" type="date" required value="${esc(x.date)}"></div>
+      <div class="f"><label for="eMiles">Millas</label><input id="eMiles" type="number" min="0" step="0.1" required value="${esc(x.miles)}"></div>
+      <div class="f full"><label for="ePurpose">Motivo o cliente</label><input id="ePurpose" type="text" value="${esc(x.purpose||"")}"></div>
+      <div class="full btn-row"><button class="btn primary" type="submit">Guardar</button><button class="btn danger" type="button" data-act="askdel">Eliminar</button></div>
+      <div class="full" id="delConfirm"></div>
+    </form></div></div>`;
+}
+
+/* ---------- Escaneo en lote ---------- */
+async function handleScan(files){
+  files=[...files]; if(!files.length) return;
+  if(files.length===1){ openForm({type:"expense",file:files[0]}); return; }
+  if(!state.db){ toast("Este navegador no deja guardar datos."); return; }
+  toast(`Leyendo ${files.length} recibos, uno por uno… quedan marcados “Por revisar”.`,5000);
+  let ok=0;
+  for(const f of files){
+    try{
+      const blob=await compress(f);
+      let r={};
+      if(state.sample && state.canImg && blob.type.startsWith("image/")){ try{ r=await readImage(blob,"expense"); }catch(e){  } }
+      let rec={}; try{ rec=await uploadReceipt(blob); }catch(e){}
+      const cats=EXP_CATS.map(c=>c.k);
+      const obj={type:"expense",date:(r.date&&/^\d{4}-\d{2}-\d{2}$/.test(r.date))?r.date:today(),amount:Math.round((+r.total||0)*100)/100,vendor:String(r.vendor||"").slice(0,80),category:cats.includes(r.category)?r.category:"otros",payment:PAY.includes(r.payment)?r.payment:"",job:"",description:String(r.description||"").slice(0,200),tax:(r.tax!=null&&!isNaN(+r.tax))?+r.tax:null,review:true,createdAt:Date.now(),updatedAt:Date.now(),...rec};
+      await state.db.collection("tx").doc().set(obj); ok++;
+    }catch(e){}
+  }
+  toast(`${ok} de ${files.length} recibos guardados. Revísalos en Movimientos.`,4000);
+  state.filter={type:"all",cat:"all",q:"",month:"all",review:true}; setTab("movimientos");
+}
+
+/* ---------- Exportar ---------- */
+function csvText(){
+  const list=yearTx(); const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const head=["Fecha","Tipo","Proveedor/Cliente","Categoría","Línea Schedule C","Monto","Deducible","Millas","Método de pago","Trabajo","Descripción","Factura","Sales tax","Recibo"];
+  const rows=list.map(x=>{ const c=catOf(x.type==="miles"?"expense":x.type,x.category);
+    const ded = x.type==="expense"?(+x.amount||0)*dedFactor(x):x.type==="miles"&&state.settings.vehicleMethod==="standard"?(+x.miles||0)*rateFor(x.date):0;
+    return [x.date, x.type==="income"?"Ingreso":x.type==="miles"?"Millas":"Gasto", x.vendor||x.purpose||"", x.type==="miles"?"Millaje":c.n, x.type==="income"?"1 · Ingresos":x.type==="miles"?"9 · Vehículo":c.line, x.type==="miles"?"":(+x.amount||0).toFixed(2), ded?ded.toFixed(2):"", x.miles||"", x.payment||"", x.job||"", x.description||"", x.invoice||"", x.tax??"", x.receiptId?"Sí":"No"].map(q).join(",");});
+  return "﻿"+[head.map(q).join(","),...rows].join("\r\n");
+}
+function summaryText(){
+  const t=totals(yearTx()); const y=state.year;
+  let s=`YM Handy Services — Resumen ${y}\nIngresos brutos: ${money(t.income)}\n`;
+  for(const c of EXP_CATS){ const b=t.byCat[c.k]; if(b&&c.k!=="personal") s+=`${c.n} (${c.line}): pagado ${money(b.amt)}, deducible ${money(b.ded)}\n`; }
+  if(t.mileageDed) s+=`Millaje: ${t.miles} mi = ${money(t.mileageDed)}\n`;
+  s+=`Total deducible: ${money(t.totalDed)}\nGanancia neta estimada: ${money(t.net)}\nMétodo de vehículo: ${state.settings.vehicleMethod==="standard"?"millaje estándar":"gastos reales"}\n`;
+  return s;
+}
+function saveFile(name,data,type){
+  const blob = data instanceof Blob ? data : new Blob([data],{type});
+  const file = new File([blob],name,{type:blob.type||type});
+  if(navigator.canShare && navigator.canShare({files:[file]}) && /iphone|ipad|android/i.test(navigator.userAgent)){
+    return navigator.share({files:[file],title:name}).catch(()=>{});
+  }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);
+}
+async function doCsv(){ saveFile(`YM-Handy-Services-${state.year}.csv`, csvText(), "text/csv"); }
+const b64 = blob=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(blob);});
+async function doBackup(){
+  toast("Preparando respaldo…");
+  const tx=[...state.tx.entries()].map(([id,d])=>({id,...d}));
+  const blobs={};
+  for(const x of tx){ if(x.receiptId && !blobs[x.receiptId]){ const b=await LS.getBlob(x.receiptId); if(b) blobs[x.receiptId]=await b64(b); } }
+  const data=JSON.stringify({app:"ym-libros",version:1,exportedAt:new Date().toISOString(),settings:state.settings,tx,blobs});
+  await LS.putMeta("settings",{...state.settings,lastBackup:Date.now()}); state.settings.lastBackup=Date.now();
+  await saveFile(`YM-respaldo-${today()}.json`, data, "application/json");
+  render();
+}
+async function doRestore(file){
+  try{
+    const j=JSON.parse(await file.text());
+    if(j.app!=="ym-libros"||!Array.isArray(j.tx)) throw 0;
+    let n=0;
+    for(const [id,url] of Object.entries(j.blobs||{})){ const b=await (await fetch(url)).blob(); await LS.putBlob(id,b); BLOBURL.set(id,URL.createObjectURL(b)); }
+    for(const x of j.tx){ const {id,...d}=x; if(!id) continue; await LS.put(id,d); state.tx.set(id,d); n++; }
+    if(j.settings){ state.settings={...state.settings,...j.settings}; await LS.putMeta("settings",state.settings); }
+    toast(`Respaldo restaurado: ${n} movimientos.`,4000); render();
+  }catch(e){ toast("Ese archivo no es un respaldo válido de YM Libros.",4000); }
+}
+
+/* ---------- Eventos ---------- */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act],[data-tab]"); if(!b) return;
+  if(e.target.id==="sheetBg"){ closeSheet(); return; }
+  const act=b.dataset.act;
+  if(!act && b.dataset.tab){ setTab(b.dataset.tab); return; }
+  if(act==="tab") setTab(b.dataset.tab);
+  else if(act==="edit") openForm({id:b.dataset.id});
+  else if(act==="close") closeSheet();
+  else if(act==="ocr") runOCR();
+  else if(act==="settype"){ const keep=form; const f=keep.file; const id=keep.id; const v=b.dataset.v; if(keep.type===v) return; openForm({id, type:v}); if(f){ form.file=f; form.preview=f.type.startsWith("image/")?URL.createObjectURL(f):null; renderPreview(); } }
+  else if(act==="askdel"){ $("#delConfirm").innerHTML=`<div class="banner">¿Eliminar este movimiento y su foto? No se puede deshacer. <span class="btn-row" style="margin-top:8px"><button type="button" class="btn danger" data-act="del">Sí, eliminar</button><button type="button" class="btn" data-act="nodel">Cancelar</button></span></div>`; }
+  else if(act==="nodel") $("#delConfirm").innerHTML="";
+  else if(act==="del") deleteTx(form.id);
+  else if(act==="ftype"){ state.filter.type=b.dataset.v; state.filter.cat="all"; render(); }
+  else if(act==="goreview"){ state.filter={type:"all",cat:"all",q:"",month:"all",review:true}; setTab("movimientos"); }
+  else if(act==="csv") doCsv();
+  else if(act==="backup") doBackup();
+  else if(act==="copysum"){ navigator.clipboard.writeText(summaryText()).then(()=>toast("Resumen copiado"),()=>toast("No se pudo copiar")); }
+});
+document.addEventListener("click",e=>{ if(e.target.id==="sheetBg") closeSheet(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && form) closeSheet(); });
+document.addEventListener("input",e=>{
+  if(e.target.id==="fq"){ state.filter.q=e.target.value; state._focusQ=true; render(); }
+});
+document.addEventListener("change",e=>{
+  const id=e.target.id;
+  if(id==="fcat"){ state.filter.cat=e.target.value; render(); }
+  else if(id==="fmonth"){ state.filter.month=e.target.value; render(); }
+  else if(id==="frev"){ state.filter.review=e.target.checked; render(); }
+  else if(id==="yearSel"){ state.year=+e.target.value; render(); }
+  else if(id==="attachInput" && e.target.files[0]){ attachFile(e.target.files[0], true); }
+  else if(id==="restoreInput" && e.target.files[0]){ doRestore(e.target.files[0]); e.target.value=""; }
+  else if(id==="scanInput"){ handleScan(e.target.files); e.target.value=""; }
+});
+document.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const id=e.target.id;
+  if(id==="txForm") saveForm(e);
+  else if(id==="mileForm"||id==="mileEdit"){
+    if(!state.db) return;
+    const p = id==="mileForm"?"m":"e";
+    const miles=+$("#"+p+"Miles").value; if(!(miles>0)) return;
+    const old = id==="mileEdit"?state.tx.get(form.id):null;
+    const obj={type:"miles",date:$("#"+p+"Date").value,miles:Math.round(miles*10)/10,purpose:$("#"+p+"Purpose").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+    const docId = id==="mileEdit"?form.id:state.db.collection("tx").doc().id;
+    try{ await state.db.doc("tx/"+docId).set(obj); toast("Millas guardadas"); if(id==="mileEdit") closeSheet(); else { $("#mMiles").value=""; $("#mPurpose").value=""; } }
+    catch(err){ toast("No se pudo guardar. Intenta otra vez."); }
+  }
+  else if(id==="setForm"){
+    if(!state.db) return;
+    const s={lastBackup:state.settings.lastBackup||0,vehicleMethod:$("#sVeh").value,businessUsePct:Math.min(100,Math.max(0,+$("#sBiz").value||0)),reservePct:Math.min(60,Math.max(0,+$("#sRes").value||0)),customRate:Math.max(0,+$("#sRate").value||0)};
+    try{ await state.db.doc("config/settings").set({...state.settings,...s}); toast("Ajustes guardados"); }catch(err){ toast("No se pudieron guardar los ajustes."); }
+  }
+});
+$("#scanBtn").addEventListener("click",()=>$("#scanInput").click());
+$("#incBtn").addEventListener("click",()=>openForm({type:"income"}));
+$("#expBtn").addEventListener("click",()=>openForm({type:"expense"}));
+window.addEventListener("hashchange",()=>{ const h=location.hash.slice(1); if(["resumen","movimientos","recibos","millas","taxes"].includes(h) && h!==state.tab){ state.tab=h; render(); } });
+
+/* ---------- Arranque ---------- */
+(function(){ const h=location.hash.slice(1); if(["resumen","movimientos","recibos","millas","taxes"].includes(h)) state.tab=h; })();
+render();
+/* ---------- Almacenamiento local (IndexedDB) ---------- */
+const LS = (()=>{
+  let dbp=null;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open("ym-libros",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("tx");d.createObjectStore("blobs");d.createObjectStore("meta");};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));
+  const run=async(store,mode,fn)=>{const d=await open();return new Promise((res,rej)=>{const t=d.transaction(store,mode);const st=t.objectStore(store);let out;const q=fn(st);if(q)q.onsuccess=()=>{out=q.result;};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error);});};
+  return {
+    open,
+    all:async()=>{const d=await open();return new Promise((res,rej)=>{const t=d.transaction("tx");const st=t.objectStore("tx");const out=new Map();const c=st.openCursor();c.onsuccess=()=>{const k=c.result;if(k){out.set(String(k.key),k.value);k.continue();}};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);});},
+    put:(id,v)=>run("tx","readwrite",s=>s.put(v,id)),
+    del:id=>run("tx","readwrite",s=>s.delete(id)),
+    getMeta:k=>run("meta","readonly",s=>s.get(k)),
+    putMeta:(k,v)=>run("meta","readwrite",s=>s.put(v,k)),
+    putBlob:(id,b)=>run("blobs","readwrite",s=>s.put(b,id)),
+    getBlob:id=>run("blobs","readonly",s=>s.get(id)),
+    delBlob:id=>run("blobs","readwrite",s=>s.delete(id)),
+    blobKeys:()=>run("blobs","readonly",s=>s.getAllKeys()),
+  };
+})();
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+/* Adaptadores con la misma forma que usa el resto del código */
+const localDb = {
+  collection(c){ return { doc:(id)=>localDb.doc(c+"/"+(id||uid())) }; },
+  doc(path){
+    const [c,id]=path.split("/");
+    return {
+      id,
+      set: async obj=>{ if(c==="config"){ await LS.putMeta(id,obj); state.settings={...state.settings,...obj}; } else { await LS.put(id,obj); state.tx.set(id,obj); } render(); },
+      delete: async()=>{ await LS.del(id); state.tx.delete(id); render(); },
+    };
+  }
+};
+const localAssets = {
+  upload: async blob=>{ const id="r"+uid(); await LS.putBlob(id,blob); BLOBURL.set(id,URL.createObjectURL(blob)); return {id,contentType:blob.type}; },
+  delete: async id=>{ await LS.delBlob(id); const u=BLOBURL.get(id); if(u) URL.revokeObjectURL(u); BLOBURL.delete(id); },
+};
+(async()=>{
+  state.sample={local:true}; state.canImg=true;
+  try{
+    await LS.open();
+    state.tx = await LS.all();
+    const st = await LS.getMeta("settings"); if(st) state.settings={...state.settings,...st};
+    const keys = await LS.blobKeys();
+    for(const k of keys){ const b=await LS.getBlob(k); if(b) BLOBURL.set(String(k),URL.createObjectURL(b)); }
+    state.db=localDb; state.assets=localAssets; state.loaded=true;
+    if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+  }catch(e){ state.noDb=true; state.loaded=true; }
+  render();
+})();
+if("serviceWorker" in navigator && location.protocol==="https:"){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>
